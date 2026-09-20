@@ -1,6 +1,6 @@
 // Стрелочные приборы (квадратный корпус 96×96, шкала 90°) и анализатор сети.
 const NS = 'http://www.w3.org/2000/svg';
-const S = 120, CX = 60, CY = 104, R = 82, ANG = 45;
+const S = 120, CX = 60, CY = 86, R = 68, ANG = 45;
 
 function el(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
@@ -38,16 +38,15 @@ export class Gauge {
         t.textContent = fmtTick(v);
       }
     }
-    const unit = el('text', { x: CX, y: 40, class: 'gauge-unit', 'text-anchor': 'middle' }, s);
+    // единицы измерения — под осью стрелки
+    const unit = el('text', { x: CX, y: CY + 19, class: 'gauge-unit', 'text-anchor': 'middle' }, s);
     unit.textContent = def.unit || { V: 'V', A: 'A', n: 'об/мин', M: 'Нм' }[def.kind] || '';
     if (def.mult) {
-      const m = el('text', { x: S - 12, y: S - 12, class: 'gauge-mult', 'text-anchor': 'end' }, s);
+      const m = el('text', { x: S - 12, y: S - 11, class: 'gauge-mult', 'text-anchor': 'end' }, s);
       m.textContent = `×${def.mult}`;
     }
-    const idt = el('text', { x: def.mult ? 12 : S - 12, y: S - 12, class: 'gauge-id', 'text-anchor': def.mult ? 'start' : 'end' }, s);
+    const idt = el('text', { x: 12, y: S - 11, class: 'gauge-id', 'text-anchor': 'start' }, s);
     idt.textContent = def.id;
-    const abb = el('text', { x: 12, y: 20, class: 'gauge-abb' }, s);
-    abb.textContent = def.model || '';
     // стрелка
     this.needle = el('g', { class: 'gauge-needle' }, s);
     el('line', { x1: CX, y1: CY, x2: CX, y2: CY - R + 2, class: 'gauge-needle-line' }, this.needle);

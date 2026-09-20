@@ -233,7 +233,6 @@ button { font: inherit; cursor: pointer; }
 .gauge-unit { font-size: 12px; font-weight: 700; fill: #111; font-family: Arial; }
 .gauge-mult, .gauge-id { font-size: 7.5px; fill: #222; font-family: Arial; font-weight: 700; }
 .gauge-id { font-size: 8px; }
-.gauge-abb { font-size: 5px; fill: #777; font-family: Arial; }
 .gauge-needle-line { stroke: #111; stroke-width: 1.6; stroke-linecap: round; }
 .gauge-pivot { fill: #222; }
 .gauge-glass { fill: rgba(255,255,255,.06); stroke: none; }
