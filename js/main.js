@@ -33,6 +33,7 @@ class App {
     this.fieldOpen = localStorage.getItem('abblab.fieldOpen') === '1';
     this.buildToolbar();
     this.mount(this.benchId);
+    this.setupFit();
     this.last = performance.now();
     requestAnimationFrame(t => this.frame(t));
   }
@@ -77,6 +78,7 @@ class App {
       e.target.value = '';
     });
     $('#btn-field').addEventListener('click', () => this.setFieldOpen(!this.fieldOpen));
+    $('#btn-field-close').addEventListener('click', () => this.setFieldOpen(false));
     $('#btn-door').addEventListener('click', () => { this.rt.toggleDoor(); this.syncDoor(); saveState(this.state); });
     const zoomLabel = z => { $('#zoom-fit').textContent = `${Math.round(z * 100)}%`; };
     $('#zoom-in').addEventListener('click', () => zoomLabel(this.field.setZoom(this.field.zoom * 1.25)));
@@ -84,6 +86,7 @@ class App {
     $('#zoom-fit').addEventListener('click', () => zoomLabel(this.field.setZoom(1)));
     this.zoomLabel = zoomLabel;
     $('#btn-log-clear').addEventListener('click', () => this.log.clear());
+    $('#btn-log-clear2').addEventListener('click', () => this.log.clear());
   }
 
   updateColorUI() {
@@ -97,20 +100,27 @@ class App {
     const bench = this.bench = BENCHES[id];
     for (const b of document.querySelectorAll('#bench-tabs button')) b.classList.toggle('active', b.dataset.bench === id);
     document.title = `${bench.title}`;
-    $('#field-title').textContent = `Монтажный отсек (наборное поле) · шкаф ${id === 'dc' ? 'А2' : 'Б5'}`;
+    const L = bench.layout;
+    $('#field-title').textContent = `Монтажный отсек (наборное поле) · шкаф ${L.field}`;
+    $('#no-rest').textContent = L.rest;
+    $('#no-pc').textContent = `${L.pc} · ПК`;
+    $('#no-conv').textContent = L.conv;
+    $('#no-field').textContent = L.field;
+    $('#no-power').textContent = L.power;
 
     this.state = loadState(bench);
-    this.log = new Log($('#log'), ids => { if (ids.length) this.setFieldOpen(true); this.field?.highlight(ids); });
+    this.log = new Log([$('#log'), $('#log2')], ids => { if (ids.length) this.setFieldOpen(true); this.field?.highlight(ids); });
     this.model = createModel(bench);
     this.rt = new BenchRuntime(bench, this.state, this.model, this.log);
 
-    this.power = new PowerPanel($('#power-panel'), bench, this.rt);
+    this.power = new PowerPanel($('#power-top'), $('#power-inputs'), bench, this.rt);
     this.buildMeters();
-    const convRoot = $('#converters');
-    convRoot.innerHTML = '';
-    this.convPanels = bench.converters.map(c => new ConverterPanel(convRoot, bench, c, this.rt));
+    // преобразователи раскладываются по шкафам: основной шкаф ПЧ/ТП и шкаф с автоматами
+    const convRoots = { [L.conv]: $('#converters-conv'), [L.power]: $('#converters-power') };
+    for (const r of Object.values(convRoots)) r.innerHTML = '';
+    this.convPanels = bench.converters.map(c => new ConverterPanel(convRoots[c.cabinet] || convRoots[L.conv], bench, c, this.rt));
     this.field = new Field($('#field-panel'), bench, this.state, {
-      onChange: () => { saveState(this.state); },
+      onChange: () => { saveState(this.state); this.refreshPreview(); },
       hint,
       canEdit: () => this.state.door,
       onZoom: z => this.zoomLabel(z),
@@ -121,6 +131,8 @@ class App {
     this.updateColorUI();
     this.syncDoor();
     this.syncField();
+    this.refreshPreview();
+    this.fit?.();
     this.log.info(`${bench.title}`);
     this.log.info('Откройте дверь отсека, соберите схему проводами, закройте дверь, включите автоматы и вводы.');
   }
@@ -131,37 +143,89 @@ class App {
     this.fieldOpen = open;
     localStorage.setItem('abblab.fieldOpen', open ? '1' : '0');
     this.syncField();
-    if (open) $('#field-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.fitHeight?.();
+    if (open) document.querySelector('.cab-row-field').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   syncField() {
     const open = this.fieldOpen;
-    document.querySelector('.cabinet-field').classList.toggle('open', open);
-    document.querySelector('.cab-row-field').classList.toggle('collapsed', !open);
-    $('#ft-title').textContent = open ? 'Скрыть наборное поле' : 'Открыть наборное поле';
-    $('#ft-sub').textContent = `клеммники, схема, монтаж проводов · шкаф ${this.benchId === 'dc' ? 'А2' : 'Б5'}`;
+    document.querySelector('.cab-row-field').classList.toggle('open', open);
+    $('#btn-field').classList.toggle('open', open);
+    $('#ft-title').textContent = open ? 'Свернуть наборное поле' : 'Открыть наборное поле';
+    $('#ft-sub').textContent = open ? 'увеличенный вид показан ниже' : 'монтажный отсек за стеклянной дверью';
+  }
+
+  /** Миниатюра поля за стеклом дверцы шкафа — копия SVG наборного поля. */
+  refreshPreview() {
+    const box = $('#fd-preview');
+    box.innerHTML = '';
+    const svg = this.field.svg.cloneNode(true);
+    svg.removeAttribute('style');
+    svg.setAttribute('class', 'fd-svg');
+    box.appendChild(svg);
   }
 
   syncDoor() {
     const open = this.state.door;
     this.field.setDoor(open);
+    $('#btn-field').classList.toggle('door-open', open);
     $('#btn-door').textContent = open ? 'Закрыть дверь' : 'Открыть дверь';
     $('#door-state').textContent = open ? 'дверь открыта — монтаж разрешён' : 'дверь закрыта — можно подавать питание';
     $('#door-state').className = 'door-state ' + (open ? 'open' : 'closed');
   }
 
+  /** Вписать стенд в ширину окна. Ряд рабочих шкафов имеет естественную ширину;
+   *  если места хватает, слева дорисовываются шкафы автоматики (А5–А6 / Б1–Б2),
+   *  иначе они скрываются, а страница масштабируется целиком. */
+  setupFit() {
+    const outer = $('#app-outer'), app = $('#app'), bench = $('#bench');
+    let scale = 1;
+    const fitH = () => { outer.style.height = `${Math.ceil(app.offsetHeight * scale)}px`; };
+    const fit = () => {
+      bench.classList.add('measure');
+      app.style.width = '';
+      const natural = bench.offsetWidth + 36;
+      const vw = document.documentElement.clientWidth;
+      if (vw >= natural + 150) {
+        bench.classList.remove('measure');
+        scale = 1;
+        app.style.transform = '';
+      } else {
+        app.style.width = `${natural}px`;
+        scale = Math.min(1, vw / natural);
+        app.style.transform = scale < 1 ? `scale(${scale})` : '';
+      }
+      fitH();
+    };
+    this.fit = fit;
+    this.fitHeight = fitH;
+    window.addEventListener('resize', fit);
+    new ResizeObserver(fitH).observe(app);
+    fit();
+  }
+
   buildMeters() {
     const root = $('#meters-panel');
     root.innerHTML = '';
+    $('#pw-slot').innerHTML = '';
+    $('#pw-slot-right').innerHTML = '';
     this.gauges = {};
     const defs = Object.fromEntries(this.bench.meters.map(m => [m.id, m]));
-    for (const row of this.bench.metersLayout) {
+    const layout = this.bench.metersLayout;
+    // анализатор сети ANR96: справа от стрелочных приборов (ДПТ) или сверху рядом с кнопками вводов (АД)
+    const pwDef = this.bench.meters.find(m => m.kind === 'PW');
+    if (pwDef) {
+      const g = new PowerAnalyzer(pwDef);
+      this.gauges[pwDef.id] = g;
+      $(layout.pw === 'top' ? '#pw-slot' : '#pw-slot-right').appendChild(g.el);
+    }
+    for (const row of layout.rows) {
       const r = document.createElement('div');
       r.className = 'meters-row';
       for (const id of row) {
         if (!id) { const e = document.createElement('div'); e.className = 'gauge empty'; r.appendChild(e); continue; }
         const d = defs[id];
-        const g = d.kind === 'PW' ? new PowerAnalyzer(d) : new Gauge(d);
+        const g = new Gauge(d);
         this.gauges[id] = g;
         r.appendChild(g.el);
       }

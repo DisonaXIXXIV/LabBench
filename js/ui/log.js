@@ -1,8 +1,9 @@
 // Панель диагностики: журнал событий и результаты проверки схемы.
 
 export class Log {
-  constructor(el, onHighlight) {
-    this.el = el;
+  /** @param els один элемент или список (журнал дублируется в каждый: монитор ПК и панель у поля) */
+  constructor(els, onHighlight) {
+    this.els = [].concat(els);
     this.onHighlight = onHighlight;
     this.items = [];
     this.max = 60;
@@ -27,7 +28,10 @@ export class Log {
   }
 
   render() {
-    const el = this.el;
+    for (const el of this.els) this.renderTo(el);
+  }
+
+  renderTo(el) {
     el.innerHTML = '';
     for (const it of this.items) {
       const d = document.createElement('div');

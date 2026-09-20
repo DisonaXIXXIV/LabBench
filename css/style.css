@@ -44,7 +44,10 @@ button { font: inherit; cursor: pointer; }
 .wc.active { border-color: #fff; box-shadow: 0 0 0 2px var(--abb-red); }
 
 /* ---------- компоновка шкафов ---------- */
-#app { padding: 12px 18px 40px; display: flex; flex-direction: column; gap: 12px; }
+/* Ряд шкафов имеет естественную ширину (около 1900 px); при более узком окне
+   страница масштабируется целиком (см. App.setupFit). */
+#app-outer { overflow: clip; } /* clip, а не hidden: не должен быть прокручиваемым контейнером */
+#app { padding: 12px 18px 40px; display: flex; flex-direction: column; gap: 14px; transform-origin: 0 0; }
 .cab-row { display: flex; gap: 12px; align-items: stretch; }
 .cabinet {
   background: var(--cab); border: 2px solid var(--cab-edge); border-radius: 6px;
@@ -58,22 +61,115 @@ button { font: inherit; cursor: pointer; }
 }
 .cabinet-title small { text-transform: none; letter-spacing: 0; color: #7b8590; }
 .cabinet-title .zoom-ctl { margin-left: auto; }
-.cab-row-top #power-cabinet { flex: 0 0 auto; min-width: 560px; }
-.cab-row-top #meters-cabinet { flex: 1 1 auto; }
-.cab-row-field { align-items: flex-start; }
-.cabinet-field { flex: 1 1 auto; min-width: 0; }
-.side { flex: 0 0 330px; display: flex; flex-direction: column; gap: 12px; }
 .mini { font-size: 10px; background: none; border: 1px solid var(--cab-edge); color: var(--muted); border-radius: 3px; padding: 1px 6px; margin-left: auto; }
 
+/* ряд шкафов: автоматика | ПК | ТП | вводы+приборы+поле | автоматы+ПЧ; под ними столешница и цоколь.
+   В режиме .measure (мало места) шкафы автоматики скрыты, ряд имеет естественную ширину. */
+.bench {
+  display: grid; grid-template-columns: minmax(150px, 1fr) auto auto auto auto; grid-template-rows: auto 22px auto;
+  column-gap: 8px; align-items: stretch;
+}
+.bench.measure { display: inline-grid; grid-template-columns: auto auto auto auto; align-self: flex-start; }
+.bench.measure .cab-rest { display: none; }
+.cab-rest .cab-window.tall {
+  flex: 1; height: auto;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.04) 40%, rgba(255,255,255,.14) 100%),
+    repeating-linear-gradient(0deg, #2c3036 0 26px, #3c4148 26px 30px, #6c7278 30px 34px, #2c3036 34px 40px),
+    repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.25) 12px 14px);
+  background-blend-mode: normal, multiply, normal;
+}
+.rest-note { font-size: 10px; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: .06em; }
+.bench > .cabinet { display: flex; flex-direction: column; gap: 8px; padding: 26px 8px 8px; border-radius: 4px 4px 0 0; }
+.cab-no {
+  position: absolute; left: 10px; top: 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--muted);
+  padding: 1px 8px; border: 1px solid var(--cab-edge); border-radius: 3px; background: #eef0f2; cursor: default;
+}
+/* верхнее смотровое окно (за ним аппаратура шкафа) */
+.cab-window {
+  height: 64px; border: 6px solid #9aa0a6; border-radius: 3px; flex: 0 0 auto;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.04) 40%, rgba(255,255,255,.14) 100%),
+    repeating-linear-gradient(90deg, #3a3f46 0 18px, #4a5058 18px 22px, #2f343a 22px 34px);
+  box-shadow: inset 0 0 20px rgba(0,0,0,.5);
+}
+.cab-window.bottom { height: 44px; margin-top: auto; }
+.cab-conv .cab-window { background:
+    linear-gradient(115deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.04) 40%, rgba(255,255,255,.14) 100%),
+    repeating-linear-gradient(90deg, #2c3036 0 10px, #4d5259 10px 13px, #2c3036 13px 26px, #6b7076 26px 30px);
+}
+
+/* столешница и цоколь */
+.table-top {
+  grid-column: 1 / -1; height: 22px; margin: 0 -14px;
+  background: linear-gradient(#e8bf7a, #d19a52 60%, #b57d3a); border-top: 2px solid #f0d09a; border-bottom: 2px solid #8a5a24;
+  box-shadow: 0 4px 10px rgba(0,0,0,.5); position: relative; z-index: 1;
+}
+.base { background: var(--cab); border: 2px solid var(--cab-edge); border-top: none; border-radius: 0 0 4px 4px; padding: 8px; box-shadow: inset 0 0 0 4px var(--cab-dark), 0 4px 14px rgba(0,0,0,.45); }
+.base-left { grid-column: 1 / span 2; min-height: 190px; }
+.bench.measure .base-left { grid-column: 1; }
+.base-motors { grid-column: 3 / -1; }
+.bench.measure .base-motors { grid-column: 2 / -1; }
+.base-left .perf {
+  height: 100%; border-radius: 3px; border: 1px solid #9aa0a6;
+  background-color: #c3c8cd;
+  background-image: radial-gradient(circle, #6d747b 1.6px, transparent 1.9px);
+  background-size: 9px 9px;
+}
+.base-motors { display: flex; flex-direction: column; }
+.base-title { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 2px 4px; }
+.base-motors #motors { flex: 1; display: flex; gap: 14px; align-items: stretch; }
+.base-motors .motors-svg { flex: 0 0 560px; height: 176px; }
+.base-motors .motors-info { flex: 1; align-content: flex-start; padding-top: 2px; }
+
+/* шкаф ПК: монитор с журналом диагностики, клавиатура */
+.cab-pc { width: 300px; }
+.pc-monitor { flex: 1; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.pc-screen {
+  width: 100%; flex: 1; min-height: 240px; background: #1a1c20; border: 8px solid #2b2e33; border-radius: 6px;
+  display: flex; flex-direction: column; box-shadow: 0 3px 8px rgba(0,0,0,.5); overflow: hidden;
+}
+.pc-bar { display: flex; align-items: center; gap: 6px; background: #2b2e33; color: #cfd3d8; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 6px; }
+.pc-bar .mini { color: #cfd3d8; border-color: #666; }
+.pc-screen .log { flex: 1; height: auto; border: none; border-radius: 0; }
+.pc-stand { width: 60px; height: 10px; background: linear-gradient(#3a3d42, #202226); border-radius: 0 0 4px 4px; }
+.pc-desk { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.pc-keyboard {
+  flex: 1; height: 30px; border-radius: 3px; border: 1px solid #222; background-color: #23262b;
+  background-image: repeating-linear-gradient(90deg, #3a3d43 0 10px, #23262b 10px 12px), repeating-linear-gradient(0deg, #3a3d43 0 6px, #23262b 6px 8px);
+  background-blend-mode: lighten;
+}
+.pc-mouse { width: 20px; height: 30px; border-radius: 10px 10px 8px 8px; background: linear-gradient(#4a4e55, #23262b); border: 1px solid #111; }
+
+/* шкаф ТП/ПЧ: преобразователи один под другим */
+.conv-stack { display: flex; flex-direction: column; gap: 8px; }
+.cab-power .conv-stack { flex: 1; }
+.conv-unit { background: var(--panel); border: 1px solid var(--cab-edge); border-radius: 3px; padding: 6px; }
+.conv-title { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 2px 6px; }
+.conv-title small { text-transform: none; letter-spacing: 0; color: #7b8590; }
+
+/* шкаф с вводами, приборами и наборным полем */
+.inputs-row { display: flex; gap: 12px; align-items: flex-start; }
+.inputs-row > div:empty { display: none; }
+.meters-block { display: flex; gap: 6px; align-items: flex-start; }
+.meters-block > div:empty { display: none; }
+#pw-slot-right { padding-top: 2px; }
+
+/* монтажный отсек крупно (ряд ниже стенда) */
+.cab-row-field { display: none; align-items: flex-start; scroll-margin-top: 64px; }
+.cab-row-field.open { display: flex; }
+.cabinet-field { flex: 1 1 auto; min-width: 0; }
+.side { flex: 0 0 330px; display: flex; flex-direction: column; gap: 12px; }
+
 /* ---------- панель питания ---------- */
-.power-top { display: flex; align-items: flex-start; gap: 18px; padding: 6px 6px 10px; }
+.power-top { display: flex; align-items: flex-start; gap: 14px; padding: 2px 0 6px; }
 .din-rail {
   display: flex; gap: 2px; padding: 24px 8px 8px; align-items: flex-end;
   background: linear-gradient(#c8ccd0, #a9aeb3); border: 1px solid #7d848b; border-radius: 3px; position: relative;
 }
 .din-rail::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 14px; background: repeating-linear-gradient(90deg, #8f969d 0 6px, #7a8188 6px 8px); opacity: .5; }
-.brk { display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; margin: 0 6px; }
-.brk-label { font-size: 8.5px; font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.15; color: #222; height: 30px; margin-bottom: 6px; white-space: nowrap; }
+.brk { display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; margin: 0 2px; }
+.brk-label { font-size: 8px; font-weight: 700; text-transform: uppercase; text-align: center; line-height: 1.15; color: #222; height: 38px; margin-bottom: 4px; width: 78px; display: flex; align-items: flex-end; justify-content: center; }
 .brk-body {
   display: flex; gap: 1px; background: #f2f2ee; border: 1px solid #777; border-radius: 3px; padding: 6px 3px 12px; position: relative;
   box-shadow: 0 2px 3px rgba(0,0,0,.35);
@@ -102,7 +198,7 @@ button { font: inherit; cursor: pointer; }
 .estop.pressed .estop-btn { transform: translateY(3px); box-shadow: 0 1px 0 #6a0000; background: radial-gradient(circle at 40% 35%, #ff3030, #8a0000 70%); }
 .estop-label { font-size: 9px; font-weight: 800; text-align: center; line-height: 1.15; }
 
-.power-inputs { display: flex; gap: 26px; padding: 8px 10px 4px; border-top: 1px solid var(--cab-edge); }
+.power-inputs { display: flex; gap: 22px; padding: 4px 6px 4px; }
 .input-group { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .input-group.flash .pb-off .lamp { animation: blink .3s 3; }
 @keyframes blink { 50% { background: var(--lamp-red); box-shadow: 0 0 10px var(--lamp-red); } }
@@ -122,11 +218,11 @@ button { font: inherit; cursor: pointer; }
 .pb-off.lit .lamp { background: var(--lamp-red); box-shadow: 0 0 12px var(--lamp-red); }
 
 /* ---------- приборы ---------- */
-#meters-panel { display: flex; flex-direction: column; gap: 6px; padding: 2px 4px; }
+#meters-panel { display: flex; flex-direction: column; gap: 6px; padding: 2px 0; }
 .meters-row { display: flex; gap: 6px; }
-.gauge { width: 132px; }
+.gauge { width: 124px; }
 .gauge.empty { visibility: hidden; }
-.gauge-svg { width: 132px; height: 132px; display: block; }
+.gauge-svg { width: 124px; height: 124px; display: block; }
 .gauge-frame { fill: #1c1c1c; stroke: #000; }
 .gauge-face { fill: #f6f5ee; stroke: #999; stroke-width: .5; }
 .gauge-arc { fill: none; stroke: #222; stroke-width: 1.2; }
@@ -142,8 +238,8 @@ button { font: inherit; cursor: pointer; }
 .gauge-glass { fill: rgba(255,255,255,.06); stroke: none; }
 .gauge-cap { display: none; }
 
-.gauge.pw { width: 132px; }
-.pw-frame { background: #202226; border-radius: 4px; border: 2px solid #000; height: 132px; padding: 5px 7px; color: #ccc; position: relative; }
+.gauge.pw { width: 124px; }
+.pw-frame { background: #202226; border-radius: 4px; border: 2px solid #000; height: 124px; padding: 5px 7px; color: #ccc; position: relative; }
 .pw-brand { font-size: 8px; font-weight: 900; color: var(--abb-red); font-family: Arial Black, Arial; }
 .pw-brand span { color: #aaa; font-family: Arial; font-weight: 400; margin-left: 4px; }
 .pw-lcd { background: #0d1a10; border: 1px solid #000; margin-top: 4px; padding: 3px 5px; height: 62px; font-family: Consolas, monospace; color: #1a3a20; }
@@ -158,12 +254,7 @@ button { font: inherit; cursor: pointer; }
 .pw-sub { font-size: 5.5px; color: #888; text-align: center; margin-top: 3px; letter-spacing: .1em; }
 
 /* ---------- преобразователи ---------- */
-.cab-row-conv { align-items: stretch; }
-.conv-list { display: flex; gap: 12px; flex: 0 0 auto; }
-.cabinet-motors { flex: 1 1 auto; min-width: 300px; display: flex; flex-direction: column; }
-.cabinet-motors #motors { flex: 1; display: flex; flex-direction: column; }
-.cabinet-motors .motors-svg { flex: 1; min-height: 150px; max-height: 210px; }
-.conv-wrap { display: flex; gap: 10px; align-items: stretch; }
+.conv-wrap { display: flex; gap: 8px; align-items: stretch; }
 .conv-face { flex: 0 0 auto; }
 .ctl-col {
   display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 6px;
@@ -247,32 +338,34 @@ button { font: inherit; cursor: pointer; }
 .pst-label { margin: 6px 10px; height: 60px; background: repeating-linear-gradient(#3b3e44 0 3px, #2c2f34 3px 6px); border: 1px solid #444; }
 
 /* ---------- наборное поле ---------- */
-/* кнопка-«дверца»: в свёрнутом виде крупная и заметная, в развёрнутом — узкая полоса над полем */
-.field-toggle {
-  display: flex; align-items: center; gap: 14px; width: 100%; margin: 0 0 8px; padding: 12px 18px; text-align: left;
-  background: linear-gradient(#ff2a36, var(--abb-red)); color: #fff; border: 2px solid #b0000a; border-radius: 5px;
-  box-shadow: 0 3px 0 #8a0008, 0 5px 12px rgba(0,0,0,.4); transition: background .15s, transform .1s, box-shadow .1s;
+/* кнопка-«дверца»: стеклянная дверь монтажного отсека с миниатюрой поля за стеклом */
+.field-door {
+  position: relative; display: block; width: 100%; flex: 1; min-height: 150px; padding: 0; margin: 0; overflow: hidden;
+  border: 8px solid #9aa0a6; border-radius: 3px; background: #3a3d42; text-align: left;
+  box-shadow: inset 0 0 20px rgba(0,0,0,.35), 0 2px 4px rgba(0,0,0,.3);
 }
-.field-toggle:hover { background: linear-gradient(#ff4552, #e8000e); }
-.field-toggle:active { transform: translateY(2px); box-shadow: 0 1px 0 #8a0008; }
-.ft-icon { font-size: 26px; line-height: 1; }
-.ft-text { display: flex; flex-direction: column; line-height: 1.2; }
-.ft-text b { font-size: 16px; letter-spacing: .02em; }
-.ft-text small { font-size: 11px; opacity: .85; }
-.ft-chev { margin-left: auto; font-size: 20px; transition: transform .25s; }
-.cabinet-field.open .field-toggle {
-  padding: 5px 14px; gap: 10px; background: #3a4048; border-color: #23272c; box-shadow: 0 2px 0 #1a1d22;
+.field-door:hover { border-color: #b3b9bf; }
+.fd-preview { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.fd-svg { width: 100%; height: 100%; display: block; }
+.fd-svg * { pointer-events: none; }
+.fd-glass {
+  position: absolute; inset: 0; transition: transform .5s ease, opacity .4s; transform-origin: left center;
+  background: linear-gradient(115deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.10) 35%, rgba(200,220,240,.22) 50%, rgba(255,255,255,.06) 65%, rgba(255,255,255,.26) 100%);
 }
-.cabinet-field.open .field-toggle:hover { background: #4a515a; }
-.cabinet-field.open .ft-icon { font-size: 16px; }
-.cabinet-field.open .ft-text b { font-size: 12px; }
-.cabinet-field.open .ft-text small { display: none; }
-.cabinet-field.open .ft-chev { transform: rotate(180deg); font-size: 14px; }
-.cabinet-field:not(.open) #field-panel,
-.cabinet-field:not(.open) .zoom-ctl,
-.cabinet-field:not(.open) .door-state,
-.cabinet-field:not(.open) .door-btn { display: none; }
-.cab-row-field.collapsed #log { height: 200px; }
+.fd-handle { position: absolute; right: 12px; top: 50%; width: 8px; height: 46px; margin-top: -23px; background: linear-gradient(90deg, #555, #bbb, #555); border-radius: 4px; transition: opacity .3s; }
+.field-door.door-open .fd-glass { transform: perspective(900px) rotateY(-70deg); opacity: 0; }
+.field-door.door-open .fd-handle { opacity: 0; }
+.fd-label {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: linear-gradient(#ff2a36, var(--abb-red)); color: #fff; padding: 8px 18px; border-radius: 5px; border: 2px solid #b0000a;
+  box-shadow: 0 3px 0 #8a0008, 0 5px 12px rgba(0,0,0,.45); white-space: nowrap; transition: transform .1s, box-shadow .1s;
+}
+.field-door:hover .fd-label { background: linear-gradient(#ff4552, #e8000e); }
+.field-door:active .fd-label { transform: translate(-50%, -50%) translateY(2px); box-shadow: 0 1px 0 #8a0008; }
+.field-door.open .fd-label { background: #3a4048; border-color: #23272c; box-shadow: 0 2px 0 #1a1d22; }
+.fd-label b { font-size: 13px; letter-spacing: .02em; }
+.fd-label small { font-size: 10px; opacity: .85; }
+
 .field-panel { position: relative; background: #3a3d42; padding: 6px; border: 1px solid #222; border-radius: 4px; }
 .field-scroll { overflow: auto; max-height: 78vh; }
 .field-svg { width: 100%; display: block; }
@@ -356,7 +449,7 @@ button { font: inherit; cursor: pointer; }
 .door-state.closed { color: var(--ok); }
 .door-btn { margin-left: 0; font-size: 11px; background: #fff; border: 1px solid var(--cab-edge); border-radius: 3px; padding: 2px 10px; }
 
-.field-controls { display: flex; gap: 24px; align-items: flex-end; padding: 10px 14px 4px; }
+.field-controls { display: flex; gap: 18px; align-items: flex-end; padding: 6px 8px 2px; background: var(--panel); border: 1px solid var(--cab-edge); border-radius: 3px; }
 .fc-group { display: flex; gap: 14px; align-items: flex-end; }
 .km-lamps { margin-left: auto; gap: 10px; }
 .km-lamp { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: #333; }
@@ -365,7 +458,12 @@ button { font: inherit; cursor: pointer; }
 .km-lamp.chain.lit .lamp { background: var(--lamp-green); box-shadow: 0 0 8px var(--lamp-green); }
 
 /* ---------- агрегат ---------- */
-.motors-svg { width: 100%; display: block; background: #c9ced3; border: 1px solid #889; border-radius: 3px; }
+.motors-svg {
+  width: 100%; display: block; border: 1px solid #889; border-radius: 3px;
+  background-color: #c9ced3;
+  background-image: linear-gradient(rgba(60,66,72,.55) 1px, transparent 1px), linear-gradient(90deg, rgba(60,66,72,.55) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
 .mt-lbl { font-size: 9px; fill: #223; font-family: Arial; }
 .mt-lbl2 { font-size: 9px; fill: #fff; font-family: Arial; font-weight: 700; }
 .motors-info { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 6px 4px 0; font-size: 12px; }
@@ -381,7 +479,7 @@ button { font: inherit; cursor: pointer; }
 
 /* ---------- диагностика ---------- */
 .cabinet-log { flex: 1; }
-#log { height: 640px; overflow-y: auto; background: #f7f8f9; border: 1px solid var(--cab-edge); border-radius: 3px; padding: 4px; font-size: 11.5px; }
+.log { height: 640px; overflow-y: auto; background: #f7f8f9; border: 1px solid var(--cab-edge); border-radius: 3px; padding: 4px; font-size: 11.5px; }
 .log-item { display: flex; gap: 6px; padding: 3px 4px; border-bottom: 1px solid #eceef0; line-height: 1.3; }
 .log-time { color: #98a2ad; font-family: Consolas, monospace; font-size: 10px; flex: 0 0 auto; padding-top: 1px; }
 .log-text { flex: 1; }

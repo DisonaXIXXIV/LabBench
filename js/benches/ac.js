@@ -221,6 +221,8 @@ export const acBench = {
   id: 'ac',
   title: 'Стенд для исследования электроприводов с асинхронными двигателями',
   cabinets: 'Б1–Б6',
+  // компоновка шкафов слева направо (вид спереди, рис. В.6)
+  layout: { pc: 'Б3', conv: 'Б4', field: 'Б5', power: 'Б6', motorsUnder: ['Б4', 'Б6'], rest: 'Б1, Б2 — автоматика стенда' },
   field: { w: 1500, h: 740, nodes, buses, jumpers, ducts: [DUCT], art: fieldArt, names },
 
   breakers: [
@@ -299,7 +301,7 @@ export const acBench = {
     { id: 'PA3', kind: 'A', model: 'AMT1-A1-20/96', min: 0, max: 20, ticks: 4, series: { motor: 'm4', winding: 'stator' } },
     { id: 'PW', kind: 'PW', model: 'ANR96', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
   ],
-  metersLayout: [['PW', 'PV1', 'PV2', 'n', 'PV3'], [null, 'PA1', 'PA2', 'M', 'PA3']],
+  metersLayout: { rows: [['PV1', 'PV2', 'n', 'PV3'], ['PA1', 'PA2', 'M', 'PA3']], pw: 'top' },
 
   protections: { overspeed: 1400, overcurrent: null },
 };

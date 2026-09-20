@@ -25,26 +25,69 @@
   </div>
 </header>
 
+<div id="app-outer">
 <main id="app">
-  <section class="cab-row cab-row-top">
-    <div class="cabinet" id="power-cabinet">
-      <div class="cabinet-title" id="power-title">Панель подключения питающих напряжений</div>
-      <div id="power-panel"></div>
+  <!-- ряд шкафов (вид спереди, слева направо как на стенде) -->
+  <section class="bench" id="bench">
+    <div class="cabinet cab-rest" id="cab-rest" title="Шкафы автоматики стенда: органов управления для студента нет">
+      <div class="cab-no" id="no-rest"></div>
+      <div class="cab-window tall"></div>
+      <div class="rest-note">автоматика стенда</div>
     </div>
-    <div class="cabinet" id="meters-cabinet">
-      <div class="cabinet-title">Панель измерительных приборов</div>
-      <div id="meters-panel"></div>
+    <div class="cabinet cab-pc" id="cab-pc">
+      <div class="cab-no" id="no-pc"></div>
+      <div class="cab-window"></div>
+      <div class="pc-monitor">
+        <div class="pc-screen">
+          <div class="pc-bar"><span>Диагностика стенда</span><button id="btn-log-clear" class="mini">очистить</button></div>
+          <div id="log" class="log"></div>
+        </div>
+        <div class="pc-stand"></div>
+      </div>
+      <div class="pc-desk"><div class="pc-keyboard"></div><div class="pc-mouse"></div></div>
     </div>
-  </section>
 
-  <section class="cab-row cab-row-conv">
-    <div id="converters" class="conv-list"></div>
-    <div class="cabinet cabinet-motors">
-      <div class="cabinet-title">Двухмашинный агрегат</div>
+    <div class="cabinet cab-conv" id="cab-conv">
+      <div class="cab-no" id="no-conv"></div>
+      <div class="cab-window"></div>
+      <div id="converters-conv" class="conv-stack"></div>
+      <div class="cab-window bottom"></div>
+    </div>
+
+    <div class="cabinet cab-field" id="cab-field">
+      <div class="cab-no" id="no-field"></div>
+      <div class="inputs-row" id="inputs-row">
+        <div id="pw-slot"></div>
+        <div id="power-inputs"></div>
+      </div>
+      <div class="meters-block" id="meters-block">
+        <div id="meters-panel"></div>
+        <div id="pw-slot-right"></div>
+      </div>
+      <button id="btn-field" class="field-door" title="Показать или скрыть наборное поле с клеммниками и проводами">
+        <div class="fd-preview" id="fd-preview"></div>
+        <div class="fd-glass"></div>
+        <div class="fd-handle"></div>
+        <div class="fd-label"><b id="ft-title">Открыть наборное поле</b><small id="ft-sub">монтажный отсек за стеклянной дверью</small></div>
+      </button>
+      <div id="field-controls" class="field-controls"></div>
+    </div>
+
+    <div class="cabinet cab-power" id="cab-power">
+      <div class="cab-no" id="no-power"></div>
+      <div id="power-top"></div>
+      <div id="converters-power" class="conv-stack"></div>
+    </div>
+
+    <div class="table-top"></div>
+    <div class="base base-left"><div class="perf"></div></div>
+    <div class="base base-motors">
+      <div class="base-title">Двухмашинный агрегат</div>
       <div id="motors"></div>
     </div>
   </section>
 
+  <!-- монтажный отсек крупно (раскрывается кнопкой-дверью в шкафу) -->
   <section class="cab-row cab-row-field">
     <div class="cabinet cabinet-field">
       <div class="cabinet-title">
@@ -52,23 +95,19 @@
         <span class="door-state" id="door-state"></span>
         <span class="zoom-ctl"><button id="zoom-out" title="Уменьшить">−</button><button id="zoom-fit" title="По ширине">100%</button><button id="zoom-in" title="Увеличить">+</button></span>
         <button id="btn-door" class="door-btn"></button>
+        <button id="btn-field-close" class="door-btn" title="Свернуть увеличенный вид">Свернуть ▴</button>
       </div>
-      <button id="btn-field" class="field-toggle" title="Показать или скрыть наборное поле с клеммниками и проводами">
-        <span class="ft-icon">⚡</span>
-        <span class="ft-text"><b id="ft-title">Открыть наборное поле</b><small id="ft-sub">клеммники, схема, монтаж проводов</small></span>
-        <span class="ft-chev">▾</span>
-      </button>
       <div id="field-panel" class="field-panel"></div>
-      <div id="field-controls" class="field-controls"></div>
     </div>
     <aside class="side">
       <div class="cabinet cabinet-log">
-        <div class="cabinet-title">Диагностика <button id="btn-log-clear" class="mini">очистить</button></div>
-        <div id="log"></div>
+        <div class="cabinet-title">Диагностика <button id="btn-log-clear2" class="mini">очистить</button></div>
+        <div id="log2" class="log"></div>
       </div>
     </aside>
   </section>
 </main>
+</div>
 
 <div id="hint" class="hint"></div>
 <script type="module" src="js/main.js"></script>

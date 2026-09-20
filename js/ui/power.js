@@ -1,11 +1,13 @@
-// Панель подключения питающих напряжений: автоматы на DIN-рейке,
-// кнопка аварийного отключения, кнопки Вкл/Выкл вводов.
+// Панели подключения питающих напряжений: автоматы на DIN-рейке и кнопка
+// аварийного отключения (верх шкафа А1/Б6) и кнопки Вкл/Выкл вводов
+// (верх шкафа А2/Б5, над приборами).
 
 export class PowerPanel {
-  constructor(container, bench, runtime) {
+  constructor(topEl, inputsEl, bench, runtime) {
     this.bench = bench;
     this.rt = runtime;
-    this.el = container;
+    this.topEl = topEl;
+    this.inEl = inputsEl;
     this.build();
   }
 
@@ -21,7 +23,7 @@ export class PowerPanel {
           <div class="brk-brand">ABB</div>
         </div>
       </div>`;
-    this.el.innerHTML = `
+    this.topEl.innerHTML = `
       <div class="power-top">
         <div class="din-rail">${main.map(brk).join('')}</div>
         <div class="estop-wrap">
@@ -32,7 +34,8 @@ export class PowerPanel {
           <div class="estop-label">АВАРИЙНОЕ<br>ОТКЛЮЧЕНИЕ</div>
         </div>
         ${sep.length ? `<div class="din-rail sep">${sep.map(brk).join('')}</div>` : ''}
-      </div>
+      </div>`;
+    this.inEl.innerHTML = `
       <div class="power-inputs">
         ${b.inputs.map(i => `
           <div class="input-group" data-id="${i.id}">
@@ -43,21 +46,21 @@ export class PowerPanel {
             </div>
           </div>`).join('')}
       </div>`;
-    for (const el of this.el.querySelectorAll('.brk')) el.addEventListener('click', () => this.rt.toggleBreaker(el.dataset.id));
-    this.el.querySelector('#estop').addEventListener('click', () => this.rt.pressEstop());
-    for (const btn of this.el.querySelectorAll('.pb')) btn.addEventListener('click', () => this.rt.setInput(btn.dataset.in, btn.dataset.on === '1'));
+    for (const el of this.topEl.querySelectorAll('.brk')) el.addEventListener('click', () => this.rt.toggleBreaker(el.dataset.id));
+    this.topEl.querySelector('#estop').addEventListener('click', () => this.rt.pressEstop());
+    for (const btn of this.inEl.querySelectorAll('.pb')) btn.addEventListener('click', () => this.rt.setInput(btn.dataset.in, btn.dataset.on === '1'));
   }
 
   update(view) {
     const s = this.rt.state;
-    for (const el of this.el.querySelectorAll('.brk')) {
+    for (const el of this.topEl.querySelectorAll('.brk')) {
       const id = el.dataset.id;
       el.classList.toggle('on', !!s.breakers[id]);
       el.classList.toggle('live', this.rt.breakerLive(id));
     }
-    this.el.querySelector('#estop').classList.toggle('pressed', s.estop);
+    this.topEl.querySelector('#estop').classList.toggle('pressed', s.estop);
     for (const inp of this.bench.inputs) {
-      const g = this.el.querySelector(`.input-group[data-id="${inp.id}"]`);
+      const g = this.inEl.querySelector(`.input-group[data-id="${inp.id}"]`);
       const live = view.live.inputs[inp.id];
       const ready = this.rt.breakerLive(inp.breaker);
       g.querySelector('.pb-on').classList.toggle('lit', live);

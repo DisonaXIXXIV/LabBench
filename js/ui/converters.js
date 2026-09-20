@@ -67,7 +67,7 @@ export class ConverterPanel {
     this.cs = runtime.state.conv[conv.id];
     this._lastRef = this.cs.ref;
     this.el = document.createElement('div');
-    this.el.className = `cabinet conv-cab conv-${conv.kind}`;
+    this.el.className = `conv-unit conv-${conv.kind}`;
     container.appendChild(this.el);
     this.build();
   }
@@ -76,7 +76,7 @@ export class ConverterPanel {
     const c = this.conv;
     const wrap = document.createElement('div');
     wrap.className = 'conv-wrap';
-    this.el.innerHTML = `<div class="cabinet-title">${c.title} <small>${c.model} · шкаф ${c.cabinet}</small></div>`;
+    this.el.innerHTML = `<div class="conv-title">${c.title} <small>${c.model}</small></div>`;
     this.el.appendChild(wrap);
     wrap.appendChild(this.buildFace());
 

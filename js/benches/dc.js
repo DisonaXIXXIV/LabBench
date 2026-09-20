@@ -190,6 +190,8 @@ export const dcBench = {
   id: 'dc',
   title: 'Стенд для исследования электропривода с двигателем постоянного тока',
   cabinets: 'А1–А6',
+  // компоновка шкафов слева направо (вид спереди, рис. В.1 и фото стенда)
+  layout: { pc: 'А4', conv: 'А3', field: 'А2', power: 'А1', motorsUnder: ['А3', 'А1'], rest: 'А5, А6 — автоматика стенда' },
   field: { w: 1500, h: 720, nodes, buses, jumpers, ducts: [DUCT], art: fieldArt, names },
 
   breakers: [
@@ -261,7 +263,7 @@ export const dcBench = {
     { id: 'M', kind: 'M', model: 'М42607', min: -2, max: 2, mult: 20, ticks: 4, unit: 'Нм', source: 'torque' },
     { id: 'PW', kind: 'PW', model: 'ANR96', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
   ],
-  metersLayout: [['PV1', 'PV2', 'n', 'PW'], ['PA1', 'PA2', 'M', null]],
+  metersLayout: { rows: [['PV1', 'PV2', 'n'], ['PA1', 'PA2', 'M']], pw: 'right' },
 
   protections: { overspeed: 2200, overcurrent: 70 },
 };
