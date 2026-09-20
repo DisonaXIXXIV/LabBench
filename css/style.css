@@ -27,6 +27,7 @@ button { font: inherit; cursor: pointer; }
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .app-header h1 { font-size: 15px; font-weight: 500; margin: 0; }
+.version { font-size: 11px; color: #8a939d; white-space: nowrap; font-family: Consolas, monospace; }
 .bench-tabs { display: flex; gap: 6px; }
 .bench-tabs button {
   background: #2e333a; color: #ccc; border: 1px solid #444; padding: 6px 14px; border-radius: 4px;
@@ -537,6 +538,7 @@ button { font: inherit; cursor: pointer; }
   body.mobile .toolbar .tb { min-height: 40px; flex: 1 1 40%; text-align: center; }
   body.mobile .toolbar .file-label { display: flex; align-items: center; justify-content: center; }
   body.mobile .toolbar .wire-colors { display: none; }
+  body.mobile .toolbar .version { flex-basis: 100%; text-align: center; padding-top: 4px; }
 
   /* миникарта */
   /* шапка прокручивается, а миникарта прилипает к верху: на телефоне она и есть навигация */

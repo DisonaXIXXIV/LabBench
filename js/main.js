@@ -13,6 +13,7 @@ import { MotorsPanel } from './ui/motors.js';
 import { FieldControls } from './ui/fieldctl.js';
 import { Log } from './ui/log.js';
 import { MobileLayout } from './ui/mobile.js';
+import { VERSION } from './version.js';
 
 const BENCHES = { dc: dcBench, ac: acBench };
 const WIRE_COLORS = ['#d02020', '#1a1a1a', '#1f5fd0', '#e8b800', '#1e9e3e', '#f0f0f0', '#8a4b1f'];
@@ -34,6 +35,7 @@ class App {
   constructor() {
     this.benchId = localStorage.getItem('abblab.bench') || 'dc';
     this.fieldOpen = localStorage.getItem('abblab.fieldOpen') === '1';
+    $('#version').textContent = `v. ${VERSION}`;
     this.buildToolbar();
     this.mobile = new MobileLayout(this);
     this.mount(this.benchId);
@@ -106,9 +108,9 @@ class App {
 
   /** Смена компоновки (мобильная ↔ обычная): цвета проводов переезжают из шапки в заголовок поля и обратно. */
   onModeChange(mobile) {
-    const wc = $('#wire-colors');
-    if (mobile) $('#btn-wire-del').before(wc);
-    else $('#toolbar').appendChild(wc);
+    const wc = $('#wire-colors'), ver = $('#version');
+    if (mobile) { $('#btn-wire-del').before(wc); $('#toolbar').appendChild(ver); }
+    else { $('#toolbar').appendChild(wc); $('.brand').appendChild(ver); }
     this.toggleMenu(false);
     this.syncField();
     this.fit?.();

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Записывает дату и время коммита в js/version.js — она показывается рядом с заголовком
+# страницы (issue #9). Включить один раз: git config core.hooksPath .githooks
+root=$(git rev-parse --show-toplevel)
+printf '// Генерируется хуком .githooks/pre-commit при каждом коммите — не править вручную.\nexport const VERSION = '"'"'%s'"'"';\n' "$(date +'%Y.%m.%d %H:%M')" > "$root/js/version.js"
+git add "$root/js/version.js"
