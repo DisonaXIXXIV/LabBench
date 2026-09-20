@@ -65,9 +65,9 @@ const PRESETS = {
     show: ['sens.IA', 'P1_ср', 'W1'],
   },
   LR7_delta_W1: {
-    title: 'ЛР7: потери в статоре ΔW1 = ∫3·i²·r1 dt (по ДТ1)',
+    title: 'ЛР7: потери в статоре ΔW1 = ∫3·iф²·r1 dt по линейному току ДТ1 (М4 в треугольнике: iф = i/√3, r1 = 2,07 Ом; для звезды k = 6,2)',
     channels: ['sens.IA'],
-    math: [{ name: 'i²', op: 'mul', a: 'sens.IA', b: 'sens.IA' }, { name: 'i²_ср', op: 'smooth', a: 'i²', win: 20 }, { name: 'p_Cu1', op: 'scale', a: 'i²_ср', k: 3 * 0.72, b0: 0 }, { name: 'ΔW1', op: 'integ', a: 'p_Cu1' }],
+    math: [{ name: 'i²', op: 'mul', a: 'sens.IA', b: 'sens.IA' }, { name: 'i²_ср', op: 'smooth', a: 'i²', win: 20 }, { name: 'p_Cu1', op: 'scale', a: 'i²_ср', k: 2.07, b0: 0 }, { name: 'ΔW1', op: 'integ', a: 'p_Cu1' }],
     show: ['sens.IA', 'p_Cu1', 'ΔW1'],
   },
   LR7_delta_W2: {

@@ -487,8 +487,11 @@ export class QuasiStaticModel extends DriveModel {
           const dc = this.dcCircuit3(cir, srcMap, nets);
           if (dc) {
             anyEnergized = true;
-            const kSer = dc.parallel ? 1.5 : 2; // две фазы последовательно или одна + две параллельно
-            const idc = Math.abs(dc.u) / (kSer * (P.r1 + dc.r) + dc.rint);
+            // сопротивление обмотки постоянному току: звезда — две фазы последовательно (2·r1) или
+            // одна + две параллельно (1,5·r1); треугольник — фаза параллельно двум последовательным (2/3·r1)
+            // или одна фаза и две параллельно всем (1/2·r1)
+            const kSer = delta ? (dc.parallel ? 0.5 : 2 / 3) : (dc.parallel ? 1.5 : 2);
+            const idc = Math.abs(dc.u) / (kSer * P.r1 + (dc.parallel ? 1.5 : 2) * dc.r + dc.rint);
             cur.stator = idc;
             cur.dc = true;
             conv[dc.dev].I += idc; conv[dc.dev].U = Math.abs(dc.u) - idc * dc.rint;
@@ -498,7 +501,9 @@ export class QuasiStaticModel extends DriveModel {
               st.state = 'stall';
               st.note = `постоянный ток ${fmt(idc)} А в статоре, ${rotorNote} — момента нет`;
             } else {
-              const ieq = idc * (dc.parallel ? Math.SQRT1_2 : Math.sqrt(2 / 3));
+              // эквивалентный переменный (фазный) ток по МДС: звезда — I·√(2/3) или I/√2,
+              // треугольник (токи фаз 2/3·I, −1/3·I, −1/3·I) — I·√2/3
+              const ieq = idc * (delta ? Math.SQRT2 / 3 : dc.parallel ? Math.SQRT1_2 : Math.sqrt(2 / 3));
               const br = (w) => imBrake(P, { ieq, w, r2Ext, poles: pp, i0: N.i0 });
               brakes.push({ id: m.id, side: s.side, torque: w => br(w).M });
               s.brake = br; s.ieq = ieq;
