@@ -99,11 +99,13 @@ export class BenchRuntime {
     const r = this.rt.conv[id];
     if (on) {
       if (!r.powered) { this.log.warn(`${c.title}: нет питания на входе (A, B, C) или не включён автомат ~220 В`); return; }
-      cs.on = true; r.fault = null;
+      if (r.fault) { this.log.warn(`${c.title}: авария «${r.fault}» не сброшена — нажмите ВЫКЛ.`); return; }
+      cs.on = true;
       this.log.ok(`${c.title}: пуск`);
     } else {
       cs.on = false;
-      this.log.info(`${c.title}: останов`);
+      if (r.fault) { this.log.ok(`${c.title}: авария «${r.fault}» сброшена`); r.fault = null; }
+      else this.log.info(`${c.title}: останов`);
     }
   }
 
