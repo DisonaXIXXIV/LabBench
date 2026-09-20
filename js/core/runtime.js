@@ -13,7 +13,7 @@ export class BenchRuntime {
     this.rt = {
       contactors: Object.fromEntries(bench.contactors.map(k => [k.id, false])),
       timers: Object.fromEntries(bench.contactors.map(k => [k.id, 0])),
-      conv: Object.fromEntries(bench.converters.map(c => [c.id, { powered: false, running: false, fault: null, ramp: 0, bypass: false }])),
+      conv: Object.fromEntries(bench.converters.map(c => [c.id, { powered: false, running: false, field: false, fault: null, ramp: 0, bypass: false }])),
       chainLive: false,
       tripFlash: 0,
       lastShortKey: '',
@@ -100,12 +100,32 @@ export class BenchRuntime {
     if (on) {
       if (!r.powered) { this.log.warn(`${c.title}: нет питания на входе (A, B, C) или не включён автомат ~220 В`); return; }
       if (r.fault) { this.log.warn(`${c.title}: авария «${r.fault}» не сброшена — нажмите ВЫКЛ.`); return; }
+      if (c.fieldOut && !cs.field) {
+        // первая ступень: возбуждение
+        cs.field = true;
+        this.log.ok(`${c.title}: включено возбуждение, задание ${(cs.fieldRef * c.fieldCol.max).toFixed(2)} А; повторное «ВКЛ.» — пуск якорной цепи`);
+        return;
+      }
+      if (c.fieldOut) {
+        // вторая ступень: якорь — только при достаточном токе возбуждения
+        const If = this.view?.sim.conv?.[c.id]?.If ?? 0;
+        if (If < c.fieldMin) {
+          r.fault = 'ОШИБКА ТОКА ОВ';
+          this.log.error(`${c.title}: ошибка тока возбуждения — I_в = ${If.toFixed(2)} А меньше ${c.fieldMin} А (задание мало или ОВ не подключена к В+/В−), якорная цепь не включена`);
+          return;
+        }
+      }
       cs.on = true;
-      this.log.ok(`${c.title}: пуск`);
+      this.log.ok(`${c.title}: пуск${c.fieldOut ? ' якорной цепи' : ''}`);
     } else {
-      cs.on = false;
-      if (r.fault) { this.log.ok(`${c.title}: авария «${r.fault}» сброшена`); r.fault = null; }
-      else this.log.info(`${c.title}: останов`);
+      if (r.fault) { this.log.ok(`${c.title}: авария «${r.fault}» сброшена`); r.fault = null; return; }
+      if (cs.on) {
+        cs.on = false;
+        this.log.info(`${c.title}: останов${c.fieldOut ? ' якорной цепи; повторное «ВЫКЛ.» снимает возбуждение' : ''}`);
+      } else if (cs.field) {
+        cs.field = false;
+        this.log.info(`${c.title}: возбуждение снято`);
+      } else this.log.info(`${c.title}: останов`);
     }
   }
 
@@ -149,6 +169,7 @@ export class BenchRuntime {
     return {
       inputs: Object.fromEntries(this.bench.inputs.map(i => [i.id, !!s.inputs[i.id] && this.breakerLive(i.breaker) && !s.door])),
       converters: Object.fromEntries(this.bench.converters.map(c => [c.id, this.rt.conv[c.id].running])),
+      field: Object.fromEntries(this.bench.converters.map(c => [c.id, this.rt.conv[c.id].field])),
       contactors: { ...this.rt.contactors },
       bypass: Object.fromEntries(this.bench.converters.map(c => [c.id, this.rt.conv[c.id].bypass])),
     };
@@ -205,13 +226,14 @@ export class BenchRuntime {
     for (const c of bench.converters) {
       const r = rt.conv[c.id], cs = s.conv[c.id];
       const powered = this.convPowered(c, nl);
-      if (r.powered && !powered && r.running) {
+      if (r.powered && !powered && (r.running || r.field)) {
         r.fault = aux ? 'ОБРЫВ ФАЗЫ' : null;
         if (aux) this.log.error(`${c.title}: пропало питание на входе — авария`);
       }
       r.powered = powered;
-      if (!powered) { r.running = false; cs.on = false; r.ramp = 0; r.bypass = false; continue; }
+      if (!powered) { r.running = false; r.field = false; cs.on = false; cs.field = false; r.ramp = 0; r.bypass = false; continue; }
       r.running = cs.on && !r.fault;
+      r.field = !!cs.field;
       if (c.kind === 'ss') {
         if (r.running) { r.ramp = Math.min(1, r.ramp + dt / (c.rampTime || 5)); r.bypass = r.ramp >= 1; }
         else { r.ramp = 0; r.bypass = false; }
@@ -221,7 +243,7 @@ export class BenchRuntime {
     // 4. итоговый нетлист и проверка на КЗ во время работы
     const liveNow = this.liveState();
     nl = buildNetlist(bench, s.wires, liveNow);
-    const anyLive = Object.values(liveNow.inputs).some(Boolean) || Object.values(liveNow.converters).some(Boolean);
+    const anyLive = Object.values(liveNow.inputs).some(Boolean) || Object.values(liveNow.converters).some(Boolean) || Object.values(liveNow.field).some(Boolean);
     let shorts = [];
     if (anyLive) {
       shorts = checkShorts(bench, nl).filter(m => m.level === 'error');
@@ -232,7 +254,10 @@ export class BenchRuntime {
         // отключаем задействованные вводы (расцепители)
         const involved = new Set(shorts.flatMap(m => m.inputs || []));
         for (const inp of bench.inputs) if (involved.has(inp.id) && s.inputs[inp.id]) this.tripFor(inp);
-        for (const c of bench.converters) if (rt.conv[c.id].running) { rt.conv[c.id].running = false; rt.conv[c.id].fault = 'КЗ НА ВЫХОДЕ'; s.conv[c.id].on = false; }
+        for (const c of bench.converters) {
+          const r = rt.conv[c.id];
+          if (r.running || r.field) { r.running = false; r.field = false; r.fault = 'КЗ НА ВЫХОДЕ'; s.conv[c.id].on = false; s.conv[c.id].field = false; }
+        }
         nl = buildNetlist(bench, s.wires, this.liveState());
       } else rt.lastShortKey = '';
     } else rt.lastShortKey = '';
@@ -243,7 +268,7 @@ export class BenchRuntime {
       const r = rt.conv[c.id], cs = s.conv[c.id];
       const mode = c.modes.find(m => m.id === cs.mode) || c.modes[0];
       convCtx[c.id] = {
-        powered: r.powered, running: r.running, mode: mode?.id ?? null,
+        powered: r.powered, running: r.running, field: r.field, mode: mode?.id ?? null,
         ref: mode ? cs.ref * mode.max * (c.controls.includes('polarity') ? cs.polarity : 1) : 0,
         refUnit: mode?.unit ?? '', fieldRef: c.fieldCol ? cs.fieldRef * c.fieldCol.max : null,
         ramp: r.ramp, bypass: r.bypass, setup: cs.setup,

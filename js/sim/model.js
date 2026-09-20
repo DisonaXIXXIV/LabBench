@@ -7,8 +7,8 @@
 //   ctx.dt          шаг времени, с
 //   ctx.nl          нетлист: nl.netOf(nodeId) -> {nodes, sources}
 //   ctx.bench       описание стенда
-//   ctx.converters  {id: {powered, running, mode, ref (со знаком, в единицах режима),
-//                         fieldRef (А), ramp (0..1 для ТПН)}}
+//   ctx.converters  {id: {powered, running, field (возбуждение включено), mode,
+//                         ref (со знаком, в единицах режима), fieldRef (А), ramp (0..1 для ТПН)}}
 //   ctx.contactors  {km1: bool, ...}
 //
 // Модель возвращает:
@@ -18,7 +18,7 @@
 //     shaft:   {speed (об/мин), torque (Нм)},
 //     motors:  {m1: {state:'run'|'stop'|'stall'|'brake'|'runaway', note}},
 //     currents:{m1: {field: A, arm: A}, ...},
-//     conv:    {tp: {I}} — ток выхода ТП, А,
+//     conv:    {tp: {I, If}} — ток якорного выхода и ток возбудителя ТП, А,
 //     pw:      {U, I, P} — показания анализатора сети,
 //     events:  [{level, text}] — сообщения: 'trip' — общая защита стенда,
 //              'fault' (+dev, fault) — авария преобразователя, 'warn'/'info' — в журнал
@@ -46,6 +46,7 @@ const fmt = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
 // mcr — критический момент двигательной характеристики при номинальном напряжении, Нм;
 // mk — максимальный тормозной момент при динамическом торможении и I_экв = Iном, Нм
 const IM_DEFAULTS = { r1: 0.5, r2: 0.3, xm: 15, xk: 2, mcr: 60, mk: 40 };
+const RF = 220 / 1.44; // сопротивление обмотки возбуждения ДПТ, Ом (1,44 А при 220 В)
 // механика вала двухмашинного агрегата
 const J_SHAFT = 0.4;                  // суммарный момент инерции, кг·м²
 const RPM_PER_NM = 60 / (2 * Math.PI) / J_SHAFT; // ускорение, (об/мин)/с на 1 Нм
@@ -91,6 +92,8 @@ export class QuasiStaticModel extends DriveModel {
     if (s.kind === 'dc') return { re: s.pol === '+' ? 240 : 0, im: 0 };
     const cv = ctx.converters[s.dev];
     const conv = this.bench.converters.find(c => c.id === s.dev);
+    // возбудитель ТП: регулятор тока — напряжение по заданию тока и сопротивлению ОВ
+    if (conv.fieldOut?.includes(s.term)) return { re: cv?.field && s.term === 'В+' ? Math.min(220, (cv.fieldRef || 0) * RF) : 0, im: 0 };
     if (!cv || !cv.running) return { re: 0, im: 0 };
     if (conv.kind === 'fc') {
       const f = this.fcFrequency(conv, cv);
@@ -101,7 +104,6 @@ export class QuasiStaticModel extends DriveModel {
     }
     // ТП
     if (s.term === 'Я+' || s.term === '+') return { re: this.tpArmVoltage(conv, cv), im: 0 };
-    if (s.term === 'В+') return { re: 220, im: 0 };
     return { re: 0, im: 0 };
   }
 
@@ -139,7 +141,8 @@ export class QuasiStaticModel extends DriveModel {
     const events = [];
     const motors = {};
     const currents = {};
-    const convI = {}; // ток выхода ТП по преобразователям, А
+    const convI = {}; // ток якорного выхода ТП по преобразователям, А
+    const convIf = {}; // ток возбудителя ТП, А
 
     // --- механика: кто задаёт скорость, кто момент ---
     // speedTarget — «жёсткий» источник скорости (замкнутый контур ПЧ/ТП);
@@ -164,7 +167,9 @@ export class QuasiStaticModel extends DriveModel {
         const ua = Vdc(ap, an);
         const hasField = uf > 50;
         const hasArm = Math.abs(ua) > 5;
-        cur.field = hasField ? 1.0 * uf / 220 : 0;
+        cur.field = uf / RF;
+        const fdev = this.fieldDev(ctx, fp, fn);
+        if (fdev) convIf[fdev] = (convIf[fdev] || 0) + cur.field;
         if (hasArm) {
           anyEnergized = true;
           if (hasField) {
@@ -407,10 +412,14 @@ export class QuasiStaticModel extends DriveModel {
     const conv = {};
     for (const c of bench.converters) {
       if (c.kind !== 'dc') continue;
-      const i = convI[c.id] || 0;
-      conv[c.id] = { I: i };
+      const i = convI[c.id] || 0, If = convIf[c.id] || 0;
+      conv[c.id] = { I: i, If };
       if (c.imax && ctx.converters[c.id]?.running && i > c.imax) {
         events.push({ level: 'fault', dev: c.id, fault: 'ПРЕВЫШЕНИЕ ТОКА', text: `ТП: максимально-токовая защита — ток выхода ${fmt(i)} А при допустимых ${c.imax} А, снизьте задание` });
+      }
+      // контроль тока возбуждения при включённой якорной цепи
+      if (c.fieldOut && ctx.converters[c.id]?.running && If < c.fieldMin) {
+        events.push({ level: 'fault', dev: c.id, fault: 'ОШИБКА ТОКА ОВ', text: `ТП: ошибка тока возбуждения — I_в = ${If.toFixed(2)} А меньше ${c.fieldMin} А, якорная цепь отключена` });
       }
     }
 
@@ -488,6 +497,18 @@ export class QuasiStaticModel extends DriveModel {
       sum += dj;
     }
     return sum / (2 * nets.length); // звезда из R на фазу: каждая пара — 2R
+  }
+
+  /** Идентификатор ТП, чей возбудитель питает обмотку возбуждения, или null. */
+  fieldDev(ctx, fp, fn) {
+    for (const id of [fp, fn]) {
+      const s = ctx.nl.netOf(id).sources[0];
+      if (s && s.kind === 'conv') {
+        const conv = this.bench.converters.find(c => c.id === s.dev);
+        if (conv.fieldOut?.includes(s.term) && ctx.converters[conv.id]?.field) return conv.id;
+      }
+    }
+    return null;
   }
 
   /** Идентификатор работающего ТП, питающего якорь, или null. */

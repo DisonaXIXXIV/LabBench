@@ -138,6 +138,7 @@ export function staticCheck(bench, wires) {
   const live = {
     inputs: Object.fromEntries(bench.inputs.map(i => [i.id, true])),
     converters: Object.fromEntries(bench.converters.map(c => [c.id, true])),
+    field: Object.fromEntries(bench.converters.map(c => [c.id, true])),
     contactors: Object.fromEntries(bench.contactors.map(k => [k.id, false])),
     bypass: Object.fromEntries(bench.converters.map(c => [c.id, false])),
   };

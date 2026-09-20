@@ -225,7 +225,11 @@ export const dcBench = {
         { id: 'w', label: 'ω', unit: 'об/мин', max: 2000 },
         { id: 'U', label: 'U', unit: 'В', max: 240 },
       ],
+      // возбудитель: левый столбец органов (задание тока ОВ), выходы В+/В− включаются
+      // первым нажатием «ВКЛ.», якорь — вторым; при токе ОВ ниже fieldMin — авария
       fieldCol: { label: 'Задание тока возбуждения', unit: 'А', max: 1.44 },
+      fieldOut: ['В+', 'В−'],
+      fieldMin: 0.5,
       controls: ['setup', 'mode', 'polarity', 'ref', 'on', 'off'],
     },
     {

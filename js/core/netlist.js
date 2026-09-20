@@ -37,9 +37,10 @@ function collectSources(bench, live) {
     }
   }
   for (const c of bench.converters) {
-    if (!live.converters[c.id]) continue;
     for (const [t, node] of Object.entries(c.out)) {
-      map.set(node, { kind: 'conv', dev: c.id, term: t });
+      // выходы возбудителя (В+/В−) включаются отдельно от якорных
+      const on = c.fieldOut?.includes(t) ? live.field?.[c.id] : live.converters[c.id];
+      if (on) map.set(node, { kind: 'conv', dev: c.id, term: t });
     }
   }
   return map;
@@ -48,7 +49,7 @@ function collectSources(bench, live) {
 /**
  * @param bench описание стенда
  * @param wires провода [{a:{node,clamp}, b:{node,clamp}}]
- * @param live  {inputs:{in1:bool}, converters:{fc:bool}, contactors:{km1:bool}, bypass:{tpn:bool}}
+ * @param live  {inputs:{in1:bool}, converters:{fc:bool}, field:{tp:bool}, contactors:{km1:bool}, bypass:{tpn:bool}}
  */
 export function buildNetlist(bench, wires, live) {
   const ids = bench.field.nodes.map(n => n.id);

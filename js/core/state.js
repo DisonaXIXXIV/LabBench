@@ -10,7 +10,8 @@ export function createState(bench) {
       polarity: 1,             // тумблер «Полярность задания»
       ref: 0,                  // потенциометр «Задание», 0..1
       fieldRef: 0.7,           // потенциометр задания тока возбуждения, 0..1
-      on: false,               // команда Вкл/Выкл
+      on: false,               // команда Вкл/Выкл (якорная цепь)
+      field: false,            // возбуждение включено (ТП с возбудителем: первая ступень «ВКЛ.»)
     };
   }
   return {
@@ -51,7 +52,7 @@ export function loadState(bench) {
       st.ctrl.start = false; st.ctrl.stop = false;
       // новая сессия начинается с обесточенного отсека и остановленных преобразователей
       for (const k of Object.keys(st.inputs)) st.inputs[k] = false;
-      for (const c of Object.values(st.conv)) c.on = false;
+      for (const c of Object.values(st.conv)) { c.on = false; c.field = false; }
     }
   } catch { /* игнорируем битые данные */ }
   return st;

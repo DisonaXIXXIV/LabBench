@@ -90,7 +90,7 @@ export class ConverterPanel {
         onChange: v => { this.cs.fieldRef = v; this.rt.log.info(`${c.title}: задание тока возбуждения ${(v * c.fieldCol.max).toFixed(2)} А`); },
       });
       col.appendChild(this.fieldPot.el);
-      col.appendChild(pushButton('ВКЛ.', 'green', () => this.rt.log.info(`${c.title}: кнопка левого столбца не задействована`)).el);
+      col.appendChild(pushButton('ВКЛ.', 'green', () => this.rt.log.info(`${c.title}: кнопка левого столбца не задействована — возбуждение включается первым нажатием «ВКЛ.» справа`)).el);
       col.appendChild(pushButton('ВЫКЛ.', 'red', () => this.rt.log.info(`${c.title}: кнопка левого столбца не задействована`)).el);
       const cap = document.createElement('div');
       cap.className = 'ctl-col-cap';
@@ -197,11 +197,13 @@ export class ConverterPanel {
     const sh = view.sim.shaft;
     this.el.classList.toggle('powered', cv.powered);
     this.el.classList.toggle('running', cv.running);
+    this.el.classList.toggle('field-on', !!cv.field);
     this.el.classList.toggle('fault', !!r.fault);
     let lines;
     if (!cv.powered) lines = ['', '', ''];
     else if (r.fault) lines = ['АВАРИЯ', r.fault, 'нажмите ВЫКЛ.'];
-    else if (!cv.running) lines = ['ГОТОВ', `${shortName(c)} ${cv.setup === 'man' ? 'РУЧ' : 'ФИКС'}`, this.refLine(cv)];
+    else if (!cv.running && cv.field) lines = ['ВОЗБУЖДЕНИЕ', `Iв = ${(view.sim.conv?.[c.id]?.If ?? 0).toFixed(2).replace('.', ',')} А`, 'ВКЛ. — пуск якоря'];
+    else if (!cv.running) lines = ['ГОТОВ', `${shortName(c)} ${cv.setup === 'man' ? 'РУЧ' : 'ФИКС'}`, c.fieldOut ? 'ВКЛ. — возбуждение' : this.refLine(cv)];
     else if (c.kind === 'ss') lines = [r.bypass ? 'БАЙПАС K4' : `ПУСК ${Math.round(cv.ramp * 100)} %`, `U = ${Math.round(220 * cv.ramp * Math.sqrt(3))} В`];
     else if (c.kind === 'dc') lines = ['РАБОТА', this.refLine(cv), `I = ${(view.sim.conv?.[c.id]?.I ?? 0).toFixed(1).replace('.', ',')} А`];
     else lines = ['РАБОТА', this.refLine(cv), `n = ${Math.round(sh.speed)} об/мин`];
