@@ -71,9 +71,9 @@ const PRESETS = {
     show: ['sens.IA', 'p_Cu1', 'ΔW1'],
   },
   LR7_delta_W2: {
-    title: 'ЛР7: потери в роторе ΔW2 = ∫M·(ω0 − ω) dt (по ДМ и ТГ)',
+    title: 'ЛР7: потери в роторе ΔW2 = ∫M·(ω0 − ω) dt (по ДМ и ТГ; ДМ показывает момент нагрузки со знаком минус)',
     channels: ['M', 'n'],
-    math: [{ name: 'ω0−ω', op: 'scale', a: 'n', k: -2 * Math.PI / 60, b0: 2 * Math.PI * 1000 / 60 }, { name: 'p2', op: 'mul', a: 'M', b: 'ω0−ω' }, { name: 'ΔW2', op: 'integ', a: 'p2' }],
+    math: [{ name: 'ω−ω0', op: 'scale', a: 'n', k: 2 * Math.PI / 60, b0: -2 * Math.PI * 1000 / 60 }, { name: 'p2', op: 'mul', a: 'M', b: 'ω−ω0' }, { name: 'ΔW2', op: 'integ', a: 'p2' }],
     show: ['n', 'M', 'p2', 'ΔW2'],
   },
 };

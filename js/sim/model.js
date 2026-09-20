@@ -634,7 +634,7 @@ export class QuasiStaticModel extends DriveModel {
             if (c0.kind === 'fc') fcPower = { dev: s.src.dev, p: r.P1 };
           }
           if (s.calc) {
-            const stalled = st.state === 'run' && Math.abs(w) < 0.1 * Math.abs(r.w0) && shaftTorque(w) * Math.sign(r.w0) <= 0;
+            const stalled = st.state === 'run' && Math.abs(w) < 0.05 * Math.abs(r.w0) && shaftTorque(w) * Math.sign(r.w0) <= 0;
             if (stalled) {
               st.state = 'stall';
               st.note += `, момент нагрузки больше критического — опрокидывание, I1 = ${fmt(i1)} А`;
