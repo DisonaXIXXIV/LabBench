@@ -263,6 +263,7 @@ export const acBench = {
       id: 'tp', kind: 'dc', title: 'Тиристорный преобразователь', cabinet: 'Б4',
       in: { A: 'tp.in.A', B: 'tp.in.B', C: 'tp.in.C' },
       out: { '+': 'tp.out.+', '−': 'tp.out.−' },
+      imax: 50, // максимально-токовая защита ТП, А
       modes: [{ id: 'U', label: 'U', unit: 'В', max: 240 }],
       controls: ['ref', 'on', 'off'],
     },

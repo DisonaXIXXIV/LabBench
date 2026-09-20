@@ -18,6 +18,7 @@
 //     shaft:   {speed (об/мин), torque (Нм)},
 //     motors:  {m1: {state:'run'|'stop'|'stall'|'brake'|'runaway', note}},
 //     currents:{m1: {field: A, arm: A}, ...},
+//     conv:    {tp: {I}} — ток выхода ТП, А,
 //     pw:      {U, I, P} — показания анализатора сети,
 //     events:  [{level, text}] — сообщения: 'trip' — общая защита стенда,
 //              'fault' (+dev, fault) — авария преобразователя, 'warn'/'info' — в журнал
@@ -138,6 +139,7 @@ export class QuasiStaticModel extends DriveModel {
     const events = [];
     const motors = {};
     const currents = {};
+    const convI = {}; // ток выхода ТП по преобразователям, А
 
     // --- механика: кто задаёт скорость, кто момент ---
     // speedTarget — «жёсткий» источник скорости (замкнутый контур ПЧ/ТП);
@@ -252,6 +254,7 @@ export class QuasiStaticModel extends DriveModel {
             const idc = Math.abs(dc.u) / ((dc.parallel ? 1.5 : 2) * P.r1);
             cur.stator = idc;
             cur.dc = true;
+            convI[dc.dev] = (convI[dc.dev] || 0) + idc;
             if (!closed) {
               st.state = 'stall';
               st.note = `постоянный ток ${fmt(idc)} А в статоре, ${rotorNote} — момента нет`;
@@ -347,6 +350,8 @@ export class QuasiStaticModel extends DriveModel {
       if (m.kind === 'dc') {
         const base = st.state === 'run' ? 2 + Math.abs(this.torque) * 1.0 : st.state === 'runaway' ? 8 : 0;
         cur.arm = Math.sign(Vdc(...m.windings.arm) || 1) * base;
+        const dev = this.tpDev(ctx, ...m.windings.arm);
+        if (dev) convI[dev] = (convI[dev] || 0) + Math.abs(cur.arm);
       } else if (cur.dc) {
         // динамическое торможение: ток статора задан ТП, ток ротора растёт со скоростью
         const b = brakes.find(b => b.id === m.id);
@@ -397,8 +402,19 @@ export class QuasiStaticModel extends DriveModel {
     if (bench.protections.overcurrent && dcm && Math.abs(currents[dcm.id]?.arm || 0) > bench.protections.overcurrent) {
       events.push({ level: 'trip', text: `Максимально-токовая защита: ток якоря превысил ${bench.protections.overcurrent} А` });
     }
+    // максимально-токовая защита ТП: ток выхода больше допустимого (например, постоянный
+    // ток в статоре АД при большом задании напряжения) — авария преобразователя
+    const conv = {};
+    for (const c of bench.converters) {
+      if (c.kind !== 'dc') continue;
+      const i = convI[c.id] || 0;
+      conv[c.id] = { I: i };
+      if (c.imax && ctx.converters[c.id]?.running && i > c.imax) {
+        events.push({ level: 'fault', dev: c.id, fault: 'ПРЕВЫШЕНИЕ ТОКА', text: `ТП: максимально-токовая защита — ток выхода ${fmt(i)} А при допустимых ${c.imax} А, снизьте задание` });
+      }
+    }
 
-    return { potentials: pot, meters, shaft: { speed: this.speed, torque: this.torque }, motors, currents, events };
+    return { potentials: pot, meters, shaft: { speed: this.speed, torque: this.torque }, motors, currents, conv, events };
   }
 
   /** Источник трёхфазного питания на трёх клеммниках: сеть, преобразователь или ничего. */
@@ -474,15 +490,21 @@ export class QuasiStaticModel extends DriveModel {
     return sum / (2 * nets.length); // звезда из R на фазу: каждая пара — 2R
   }
 
-  /** Питается ли якорь от работающего ТП. */
-  tpDrive(ctx, ap, an) {
+  /** Идентификатор работающего ТП, питающего якорь, или null. */
+  tpDev(ctx, ap, an) {
     const s = ctx.nl.netOf(ap).sources[0], t = ctx.nl.netOf(an).sources[0];
     for (const s0 of [s, t]) {
       if (s0 && s0.kind === 'conv') {
         const conv = this.bench.converters.find(c => c.id === s0.dev);
-        if (conv.kind === 'dc' && ctx.converters[conv.id].running) return ctx.converters[conv.id];
+        if (conv.kind === 'dc' && ctx.converters[conv.id].running) return conv.id;
       }
     }
     return null;
+  }
+
+  /** Питается ли якорь от работающего ТП. */
+  tpDrive(ctx, ap, an) {
+    const dev = this.tpDev(ctx, ap, an);
+    return dev ? ctx.converters[dev] : null;
   }
 }

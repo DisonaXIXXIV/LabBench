@@ -203,6 +203,7 @@ export class ConverterPanel {
     else if (r.fault) lines = ['АВАРИЯ', r.fault, 'нажмите ВЫКЛ.'];
     else if (!cv.running) lines = ['ГОТОВ', `${shortName(c)} ${cv.setup === 'man' ? 'РУЧ' : 'ФИКС'}`, this.refLine(cv)];
     else if (c.kind === 'ss') lines = [r.bypass ? 'БАЙПАС K4' : `ПУСК ${Math.round(cv.ramp * 100)} %`, `U = ${Math.round(220 * cv.ramp * Math.sqrt(3))} В`];
+    else if (c.kind === 'dc') lines = ['РАБОТА', this.refLine(cv), `I = ${(view.sim.conv?.[c.id]?.I ?? 0).toFixed(1).replace('.', ',')} А`];
     else lines = ['РАБОТА', this.refLine(cv), `n = ${Math.round(sh.speed)} об/мин`];
     this.lcd.forEach((l, i) => { l.textContent = lines[i] ?? ''; });
     if (this.leds.on) {

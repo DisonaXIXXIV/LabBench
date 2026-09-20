@@ -219,6 +219,7 @@ export const dcBench = {
       id: 'tp', kind: 'dc', title: 'Тиристорный преобразователь', cabinet: 'А3',
       in: { A: 'tp.in.A', B: 'tp.in.B', C: 'tp.in.C' },
       out: { 'Я+': 'tp.out.Я+', 'Я−': 'tp.out.Я−', 'В+': 'tp.out.В+', 'В−': 'tp.out.В−' },
+      imax: 50, // максимально-токовая защита ТП по току якоря, А
       modes: [
         { id: 'I', label: 'I', unit: 'А', max: 25 },
         { id: 'w', label: 'ω', unit: 'об/мин', max: 2000 },
