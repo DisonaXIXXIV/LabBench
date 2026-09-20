@@ -1,6 +1,7 @@
 // Проверки собранной схемы по нетлисту.
 // Возвращают сообщения {level:'error'|'warn'|'info', text, nodes:[ids]}.
 import { buildNetlist, describeSource, shortName } from './netlist.js';
+import { Circuit } from '../sim/circuit.js';
 
 /** Проверка одной конфигурации нетлиста на короткие замыкания. */
 export function checkShorts(bench, nl) {
@@ -91,11 +92,30 @@ export function checkDevices(bench, nl) {
       if (set.size < 3) msgs.push({ level: 'error', text: `${shortName(c)}: на входе повторяется фаза (${phases.map(p => p[0]).join(', ')})`, nodes: Object.values(c.in) });
     }
   }
+  // резисторы: подключены одним концом; обмотка через резисторы, не доходящие до источника
+  const cir = new Circuit(bench, nl, []);
+  const resName = id => bench.field.names?.[id] || id;
+  for (const r of bench.resistors || []) {
+    const ext = id => nl.netOf(id).nodes.some(n => !n.startsWith(`${r.id}.`)); // к зажиму подходит что-то, кроме шины самого резистора
+    const ca = ext(r.a), cb = ext(r.b);
+    if (ca !== cb) msgs.push({ level: 'warn', text: `${resName(r.id)}: подключён одним концом — тока через него не будет`, nodes: [r.a, r.b] });
+  }
   for (const m of bench.motors) {
     for (const [w, ids] of Object.entries(m.windings)) {
       if (w === 'ends') continue;
       const nets = ids.map(n => nl.netOf(n));
       const hasSrc = nets.map(net => net.sources.length > 0);
+      // через резисторы: есть ли на другом конце цепочки источник
+      const viaRes = nets.map(net => !net.sources.length && cir.path(net, n => n !== net && n.sources.length > 0));
+      const deadRes = nets.map((net, i) => !hasSrc[i] && !viaRes[i] && (cir.adj.get(net) || []).some(e => e.res));
+      if (deadRes.some(Boolean) && hasSrc.some(Boolean)) {
+        msgs.push({ level: 'warn', text: `${m.title.split(' — ')[0]}: обмотка «${windingName(w)}» через резистор, но резистор дальше ни к чему не подключён`, nodes: ids });
+      }
+      if (viaRes.some(Boolean)) {
+        const res = [...new Set(viaRes.filter(Boolean).flatMap(p => p.res))].map(resName).join(', ');
+        msgs.push({ level: 'info', text: `${m.title.split(' — ')[0]}: обмотка «${windingName(w)}» питается через ${res}`, nodes: ids });
+      }
+      for (let i = 0; i < hasSrc.length; i++) if (viaRes[i]) hasSrc[i] = true;
       const conn = nets.map(net => net.nodes.length > 1);
       const nSrc = hasSrc.filter(Boolean).length;
       const srcs = nets.flatMap(net => net.sources);

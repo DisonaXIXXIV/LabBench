@@ -12,6 +12,7 @@ export function createState(bench) {
       fieldRef: 0.7,           // потенциометр задания тока возбуждения, 0..1
       on: false,               // команда Вкл/Выкл (якорная цепь)
       field: false,            // возбуждение включено (ТП с возбудителем: первая ступень «ВКЛ.»)
+      params: Object.fromEntries((c.params || []).map(p => [p.id, p.def])), // пульт параметров (действует в «Руч»)
     };
   }
   return {
@@ -21,7 +22,8 @@ export function createState(bench) {
     estop: false,
     door: true,                // true — дверь монтажного отсека открыта
     inputs: Object.fromEntries(bench.inputs.map(i => [i.id, false])),
-    ctrl: { start: false, stop: false, t1: 0.3, t2: 0.3 },
+    // t1/t2 — потенциометры «Время 1/2» (0..1; крайнее положение — ∞), manual — ручное включение KM2/KM3
+    ctrl: { start: false, stop: false, t1: 0.3, t2: 0.3, manual: Object.fromEntries(bench.contactors.filter(k => k.after).map(k => [k.id, false])) },
     conv,
     wireColor: '#d02020',
   };
@@ -46,7 +48,12 @@ export function loadState(bench) {
       Object.assign(st.breakers, pick(s.breakers, st.breakers));
       Object.assign(st.inputs, pick(s.inputs, st.inputs));
       Object.assign(st.ctrl, pick(s.ctrl, st.ctrl));
-      for (const id of Object.keys(st.conv)) if (s.conv?.[id]) Object.assign(st.conv[id], pick(s.conv[id], st.conv[id]));
+      for (const id of Object.keys(st.conv)) {
+        if (!s.conv?.[id]) continue;
+        const params = { ...st.conv[id].params, ...pick(s.conv[id].params, st.conv[id].params) };
+        Object.assign(st.conv[id], pick(s.conv[id], st.conv[id]), { params });
+      }
+      st.ctrl.manual = Object.fromEntries(Object.keys(st.ctrl.manual).map(k => [k, false]));
       if (typeof s.door === 'boolean') st.door = s.door;
       if (s.wireColor) st.wireColor = s.wireColor;
       st.ctrl.start = false; st.ctrl.stop = false;

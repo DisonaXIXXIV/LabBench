@@ -37,6 +37,8 @@ function collectSources(bench, live) {
     }
   }
   for (const c of bench.converters) {
+    // ТПН в байпасе: тиристоры зашунтированы контактором K4, выход — просто сеть
+    if (c.bypass && live.bypass?.[c.id]) continue;
     for (const [t, node] of Object.entries(c.out)) {
       // выходы возбудителя (В+/В−) включаются отдельно от якорных
       const on = c.fieldOut?.includes(t) ? live.field?.[c.id] : live.converters[c.id];
@@ -50,12 +52,14 @@ function collectSources(bench, live) {
  * @param bench описание стенда
  * @param wires провода [{a:{node,clamp}, b:{node,clamp}}]
  * @param live  {inputs:{in1:bool}, converters:{fc:bool}, field:{tp:bool}, contactors:{km1:bool}, bypass:{tpn:bool}}
+ * @param opts  {jumpers: false} — не объединять проходные перемычки измерителей (PW, ДТ):
+ *              для модели они — ветви цепи, через которые считается ток
  */
-export function buildNetlist(bench, wires, live) {
+export function buildNetlist(bench, wires, live, { jumpers = true } = {}) {
   const ids = bench.field.nodes.map(n => n.id);
   const uf = new UnionFind(ids);
   for (const [a, b] of bench.field.buses) uf.union(a, b);
-  for (const [a, b] of bench.field.jumpers) uf.union(a, b);
+  if (jumpers) for (const [a, b] of bench.field.jumpers) uf.union(a, b);
   for (const w of wires) uf.union(w.a.node, w.b.node);
   for (const km of bench.contactors) {
     if (live.contactors[km.id]) for (const [a, b] of km.contacts) uf.union(a, b);

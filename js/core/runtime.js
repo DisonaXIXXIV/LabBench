@@ -3,6 +3,9 @@
 // вызывает модель привода и отдаёт «вид» для отрисовки.
 import { buildNetlist } from './netlist.js';
 import { checkShorts } from './checks.js';
+import { probeBranches } from '../sim/circuit.js';
+
+const SUBSTEP = 0.005; // шаг модели, с (кадр делится на подшаги — переходные процессы и сигналы осциллографа)
 
 export class BenchRuntime {
   constructor(bench, state, model, log) {
@@ -10,6 +13,9 @@ export class BenchRuntime {
     this.state = state;
     this.model = model;
     this.log = log;
+    this.probes = probeBranches(bench);
+    this.time = 0; // время модели, с
+    this.onSubstep = null; // (t, model, dt) — вызывается после каждого подшага (запись осциллографа)
     this.rt = {
       contactors: Object.fromEntries(bench.contactors.map(k => [k.id, false])),
       timers: Object.fromEntries(bench.contactors.map(k => [k.id, 0])),
@@ -93,6 +99,21 @@ export class BenchRuntime {
   pressStart(down) { this.state.ctrl.start = down; }
   pressStop(down) { this.state.ctrl.stop = down; }
 
+  /** Ручное включение контактора KM2/KM3 (удерживается, пока включён предыдущий контактор цепочки). */
+  toggleContactor(id) {
+    const k = this.bench.contactors.find(k => k.id === id);
+    if (!k || !k.after) return;
+    const man = this.state.ctrl.manual;
+    man[id] = !man[id];
+    this.log.info(`${id.toUpperCase()}: ручное включение ${man[id] ? 'задано' : 'снято'}`);
+  }
+
+  /** Выдержка времени приставки контактора, с; null — положение «∞» (только вручную). */
+  contactorDelay(k) {
+    const v = this.state.ctrl[k.timer] ?? 0;
+    return v >= 0.995 ? null : 0.5 + v * 9.5; // 0,5…10 с, крайнее положение — ∞
+  }
+
   convCommand(id, on) {
     const c = this.bench.converters.find(c => c.id === id);
     const cs = this.state.conv[id];
@@ -130,6 +151,14 @@ export class BenchRuntime {
   }
 
   // ---------- внутреннее ----------
+
+  /** Параметр пульта преобразователя: «Руч» — введённое значение, «Фикс» — заводское. */
+  param(c, cs, id) {
+    const p = (c.params || []).find(p => p.id === id);
+    if (!p) return undefined;
+    const v = cs.setup === 'man' ? cs.params?.[id] : undefined;
+    return Number.isFinite(v) ? v : p.def;
+  }
 
   breakerLive(id) {
     const s = this.state;
@@ -216,11 +245,15 @@ export class BenchRuntime {
         const prev = rt.contactors[k.after];
         if (prev) {
           rt.timers[k.id] += dt;
-          const delay = 0.5 + (s.ctrl[k.timer] ?? 0) * 9.5; // 0,5…10 с
-          if (rt.timers[k.id] >= delay) rt.contactors[k.id] = true;
+          const delay = this.contactorDelay(k);
+          // автоматически по выдержке времени (положение «∞» — никогда) либо вручную кнопкой
+          if ((delay !== null && rt.timers[k.id] >= delay) || s.ctrl.manual?.[k.id]) rt.contactors[k.id] = true;
+          else if (delay === null) rt.contactors[k.id] = false;
         } else { rt.contactors[k.id] = false; rt.timers[k.id] = 0; }
       }
     }
+    // ручное включение действует, пока цепочка под током; после «Стоп» сбрасывается
+    if ((!live || s.ctrl.stop) && s.ctrl.manual) for (const k of bench.contactors) s.ctrl.manual[k.id] = false;
 
     // 3. преобразователи
     for (const c of bench.converters) {
@@ -235,8 +268,15 @@ export class BenchRuntime {
       r.running = cs.on && !r.fault;
       r.field = !!cs.field;
       if (c.kind === 'ss') {
-        if (r.running) { r.ramp = Math.min(1, r.ramp + dt / (c.rampTime || 5)); r.bypass = r.ramp >= 1; }
-        else { r.ramp = 0; r.bypass = false; }
+        if (r.running) {
+          // плавный пуск: рампа напряжения за «время пуска»; при токе выше ограничения рампа ждёт
+          const tRamp = this.param(c, cs, 'tstart') ?? (c.rampTime || 5);
+          const iLim = this.param(c, cs, 'ilim');
+          const inom = bench.motors.find(m => m.kind.startsWith('im'))?.nominal.current || 15;
+          const iNow = this.view?.sim.conv?.[c.id]?.I ?? 0;
+          if (r.bypass || !iLim || iNow <= iLim * inom) r.ramp = Math.min(1, r.ramp + dt / tRamp);
+          r.bypass = r.ramp >= 1;
+        } else { r.ramp = 0; r.bypass = false; }
       }
     }
 
@@ -262,7 +302,7 @@ export class BenchRuntime {
       } else rt.lastShortKey = '';
     } else rt.lastShortKey = '';
 
-    // 5. модель привода
+    // 5. модель привода — по подшагам; нетлист для модели без перемычек измерителей
     const convCtx = {};
     for (const c of bench.converters) {
       const r = rt.conv[c.id], cs = s.conv[c.id];
@@ -271,10 +311,22 @@ export class BenchRuntime {
         powered: r.powered, running: r.running, field: r.field, mode: mode?.id ?? null,
         ref: mode ? cs.ref * mode.max * (c.controls.includes('polarity') ? cs.polarity : 1) : 0,
         refUnit: mode?.unit ?? '', fieldRef: c.fieldCol ? cs.fieldRef * c.fieldCol.max : null,
-        ramp: r.ramp, bypass: r.bypass, setup: cs.setup,
+        ramp: r.ramp, bypass: r.bypass, setup: cs.setup, params: { ...(cs.params || {}) },
       };
     }
-    const sim = this.model.step({ dt, nl, bench, converters: convCtx, contactors: { ...rt.contactors } });
+    const nlm = buildNetlist(bench, s.wires, this.liveState(), { jumpers: false });
+    const ctx = { dt: SUBSTEP, nl: nlm, probes: this.probes, bench, converters: convCtx, contactors: { ...rt.contactors } };
+    let sim = null;
+    const seen = new Set();
+    const events = [];
+    for (let left = dt; left > 1e-9; left -= SUBSTEP) {
+      ctx.dt = Math.min(SUBSTEP, left);
+      sim = this.model.step(ctx);
+      this.time += ctx.dt;
+      for (const ev of sim.events) { const key = ev.level + ev.text; if (!seen.has(key)) { seen.add(key); events.push(ev); } }
+      this.onSubstep?.(this.time, this.model, ctx.dt);
+    }
+    sim.events = events;
 
     // 6. защиты по результатам модели
     for (const ev of sim.events) {
