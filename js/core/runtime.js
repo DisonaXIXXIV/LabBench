@@ -259,6 +259,10 @@ export class BenchRuntime {
           this.tripAll('защита');
           for (const c of bench.converters) { rt.conv[c.id].running = false; s.conv[c.id].on = false; }
         }
+      } else if (ev.level === 'fault') {
+        // авария преобразователя: останов, на дисплее — код, сброс кнопкой ВЫКЛ.
+        const r = rt.conv[ev.dev];
+        if (r && r.running) { r.running = false; r.fault = ev.fault; s.conv[ev.dev].on = false; this.log.error(ev.text); }
       } else this.log.push(ev.level, ev.text);
     }
     if (rt.tripFlash > 0) rt.tripFlash -= dt;

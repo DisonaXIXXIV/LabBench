@@ -76,6 +76,15 @@ export function checkDevices(bench, nl) {
     const phases = nets.map(net => net.sources.filter(s => s.kind === 'ac' && s.phase !== 'N').map(s => s.phase));
     const connected = phases.filter(p => p.length).length;
     if (connected === 0) continue;
+    // тормозной резистор ПЧ на выводах Br+/Br−
+    if (c.brake) {
+      const [bp, bn] = c.brake;
+      if (nl.same(bp, bn)) msgs.push({ level: 'error', text: `${shortName(c)}: выводы Br+ и Br− замкнуты накоротко — при торможении сгорит тормозной ключ`, nodes: c.brake });
+      else if (!(bench.resistors || []).some(r => (nl.same(bp, r.a) && nl.same(bn, r.b)) || (nl.same(bp, r.b) && nl.same(bn, r.a)))) {
+        if (nl.isConnected(bp) || nl.isConnected(bn)) msgs.push({ level: 'warn', text: `${shortName(c)}: к Br+/Br− подключён не резистор — рекуперация вызовет перенапряжение звена ПТ`, nodes: c.brake });
+        else msgs.push({ level: 'info', text: `${shortName(c)}: тормозной резистор не подключён (Br+/Br−) — генераторный режим приведёт к аварии по перенапряжению`, nodes: c.brake });
+      }
+    }
     if (connected < 3) msgs.push({ level: 'warn', text: `${shortName(c)}: на вход подключены не все фазы (${connected} из 3)`, nodes: Object.values(c.in) });
     else {
       const set = new Set(phases.map(p => p[0]));

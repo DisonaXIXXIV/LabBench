@@ -19,7 +19,8 @@
 //     motors:  {m1: {state:'run'|'stop'|'stall'|'brake'|'runaway', note}},
 //     currents:{m1: {field: A, arm: A}, ...},
 //     pw:      {U, I, P} — показания анализатора сети,
-//     events:  [{level, text}] — сообщения (защиты и т.п.)
+//     events:  [{level, text}] — сообщения: 'trip' — общая защита стенда,
+//              'fault' (+dev, fault) — авария преобразователя, 'warn'/'info' — в журнал
 //   }
 
 export class DriveModel {
@@ -38,10 +39,28 @@ const sub = (a, b) => ({ re: a.re - b.re, im: a.im - b.im });
 const mag = (v) => Math.hypot(v.re, v.im);
 const lag = (cur, target, dt, tau) => cur + (target - cur) * Math.min(1, dt / tau);
 const fmt = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
-// параметры АД для динамического торможения (переопределяются в bench.motors[].im):
+// параметры АД (переопределяются в bench.motors[].im):
 // r1 — сопротивление фазы статора, Ом; r2 — ротора (приведённое), Ом;
-// xm — сопротивление намагничивания, Ом; mk — максимальный тормозной момент при I_экв = Iном, Нм
-const IM_DEFAULTS = { r1: 0.5, r2: 0.3, xm: 15, mk: 40 };
+// xm — сопротивление намагничивания, Ом; xk — индуктивное сопротивление КЗ (x1 + x2'), Ом;
+// mcr — критический момент двигательной характеристики при номинальном напряжении, Нм;
+// mk — максимальный тормозной момент при динамическом торможении и I_экв = Iном, Нм
+const IM_DEFAULTS = { r1: 0.5, r2: 0.3, xm: 15, xk: 2, mcr: 60, mk: 40 };
+// механика вала двухмашинного агрегата
+const J_SHAFT = 0.4;                  // суммарный момент инерции, кг·м²
+const RPM_PER_NM = 60 / (2 * Math.PI) / J_SHAFT; // ускорение, (об/мин)/с на 1 Нм
+const friction = (w) => 3 * Math.tanh(w / 30) + 0.004 * w; // трение + вентиляция, Нм
+const REGEN_W = 150;                  // порог генераторной мощности ПЧ, Вт
+const REGEN_T = 0.5;                  // время до перенапряжения звена ПТ без тормозного резистора, с
+
+/**
+ * Момент АД по упрощённой формуле Клосса (r1 ≈ 0): M = 2·Mк·s·sк / (s² + sк²).
+ * im = {w0 — синхронная скорость со знаком направления, об/мин; sk — критическое
+ * скольжение (r2 + Rдоб)/xк; mk — критический момент при данном напряжении}.
+ */
+const kloss = (im, w) => {
+  const s = (im.w0 - w) / im.w0;
+  return Math.sign(im.w0) * 2 * im.mk * s * im.sk / (s * s + im.sk * im.sk);
+};
 
 /**
  * Квазистатическая модель: потенциалы сетей по источникам, показания
@@ -59,6 +78,8 @@ export class QuasiStaticModel extends DriveModel {
     this.torque = 0;
     this.currents = {};
     this.uf = 0; // напряжение возбуждения ТП (ДПТ-стенд)
+    this.regen = {};   // время генераторного режима ПЧ без тормозного резистора, по преобразователям
+    this.stalled = {}; // АД, опрокинутые моментом нагрузки (для однократного сообщения)
   }
 
   /** Потенциал сети по её источникам (первый источник главный). */
@@ -87,7 +108,7 @@ export class QuasiStaticModel extends DriveModel {
     const sync = this.bench.motors[0].nominal.speed; // синхронная скорость при 50 Гц
     if (cv.mode === 'f') return cv.ref;
     if (cv.mode === 'w') return cv.ref / sync * 50;
-    return 50; // режим момента — частота «по скорости вала»
+    return Math.max(3, Math.abs(this.speed) / sync * 50); // режим момента — частота по скорости вала
   }
 
   tpArmVoltage(conv, cv) {
@@ -119,10 +140,17 @@ export class QuasiStaticModel extends DriveModel {
     const currents = {};
 
     // --- механика: кто задаёт скорость, кто момент ---
+    // speedTarget — «жёсткий» источник скорости (замкнутый контур ПЧ/ТП);
+    // torqueTarget — момент, приложенный к валу источником момента (режим M / I);
+    // ims — АД на естественной/искусственной характеристике (сеть, ТПН, ПЧ в режиме f):
+    //       момент зависит от скорости вала по формуле Клосса;
+    // brakes — АД в динамическом торможении.
     let speedTarget = null; // об/мин
     let torqueTarget = 0;   // Нм
     let anyEnergized = false;
-    const brakes = [];      // АД в динамическом торможении: {id, mk, wk, ieq}
+    const brakes = [];      // {id, mk, wk, ieq}
+    const ims = [];         // {id, w0, sk, mk, u}
+    let fcDrive = null;     // чем ПЧ нагружает вал: {dev, kind:'torque'|'speed'|'im', im}
 
     for (const m of bench.motors) {
       const st = { state: 'stop', note: '' };
@@ -157,8 +185,8 @@ export class QuasiStaticModel extends DriveModel {
         if (drv && drv.kind === 'conv') {
           anyEnergized = true;
           const cv = ctx.converters[drv.dev];
-          if (cv.mode === 'M') torqueTarget = -cv.ref;
-          else speedTarget = speedTarget ?? cv.ref;
+          if (cv.mode === 'M') { torqueTarget = -cv.ref; fcDrive = { dev: drv.dev, kind: 'torque' }; }
+          else { speedTarget = speedTarget ?? cv.ref; fcDrive = { dev: drv.dev, kind: 'speed' }; }
           st.state = 'run';
         } else if (drv && drv.kind === 'mains') {
           st.state = 'stall'; st.note = 'СДПМ подключён к сети напрямую';
@@ -188,18 +216,32 @@ export class QuasiStaticModel extends DriveModel {
         if (drv) {
           anyEnergized = true;
           st.note = rotorNote;
+          // критическое скольжение растёт с добавочным сопротивлением ротора:
+          // sк = (r2 + Rдоб)/xк, критический момент от Rдоб не зависит
+          const im = { id: m.id, w0: sync, sk: (P.r2 + rExt) / P.xk, mk: P.mcr, u: 1 };
           if (!closed) { st.state = 'stall'; }
           else if (drv.kind === 'mains') {
-            // скольжение растёт с добавочным сопротивлением ротора
-            speedTarget = speedTarget ?? sync * (1 - Math.min(0.3, 0.04 * (1 + rExt / (4 * P.r2))));
+            ims.push(im);
             st.state = 'run';
           } else {
             const cv = ctx.converters[drv.dev];
             const conv = bench.converters.find(c => c.id === drv.dev);
-            if (conv.kind === 'ss') speedTarget = speedTarget ?? sync * 0.96 * cv.ramp;
-            else if (cv.mode === 'M') torqueTarget = -cv.ref;
-            else if (cv.mode === 'f') speedTarget = speedTarget ?? sync * cv.ref / 50 * 0.97;
-            else speedTarget = speedTarget ?? cv.ref;
+            if (conv.kind === 'ss') {
+              // пониженное напряжение: критический момент ∝ U²
+              im.u = cv.ramp; im.mk = P.mcr * cv.ramp * cv.ramp;
+              ims.push(im);
+            } else if (cv.mode === 'M') { torqueTarget = -cv.ref; fcDrive = { dev: drv.dev, kind: 'torque' }; }
+            else if (cv.mode === 'f') {
+              // скалярное управление U/f: синхронная скорость по частоте, выше 50 Гц — ослабление поля
+              const f = cv.ref;
+              if (Math.abs(f) >= 1) {
+                im.w0 = sync * f / 50;
+                im.u = Math.min(1, Math.abs(f) / 50);
+                im.mk = P.mcr * Math.min(1, (50 / Math.abs(f)) ** 2);
+                ims.push(im);
+                fcDrive = { dev: drv.dev, kind: 'im', im };
+              } else st.note += ', f = 0';
+            } else { speedTarget = speedTarget ?? cv.ref; fcDrive = { dev: drv.dev, kind: 'speed' }; }
             st.state = 'run';
           }
         } else {
@@ -234,31 +276,68 @@ export class QuasiStaticModel extends DriveModel {
     // --- вал ---
     // суммарный тормозной момент АД в динамическом торможении при скорости w
     const brakeM = (w) => brakes.reduce((sum, b) => { const x = Math.abs(w) / b.wk; return sum + 2 * b.mk * x / (1 + x * x); }, 0);
-    let target = speedTarget ?? 0;
-    let tau = anyEnergized ? 0.8 : 1.5;
-    let dispTorque = torqueTarget;
-    if (speedTarget === null && torqueTarget !== 0) {
-      if (brakes.length) {
-        // приводной момент против тормозной характеристики: устойчивая точка на
-        // восходящей ветви; если момент больше максимума тормозного — разгон
-        const M = Math.abs(torqueTarget);
-        let peakW = 0, peakM = 0;
-        for (let w = 0; w <= 2000; w += 5) { const mw = brakeM(w); if (mw > peakM) { peakM = mw; peakW = w; } }
-        if (M >= peakM) target = Math.sign(torqueTarget) * 2000;
-        else {
-          let lo = 0, hi = peakW;
-          for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (brakeM(mid) < M) lo = mid; else hi = mid; }
-          target = Math.sign(torqueTarget) * hi;
-        }
-      } else target = Math.sign(torqueTarget) * 300; // момент без регулятора скорости — вал «уплывает»
-    } else if (brakes.length) {
-      if (speedTarget === null) tau = 0.5; // ничто не крутит — вал тормозится до нуля
-      dispTorque = Math.sign(this.speed) * brakeM(this.speed);
+    // момент всех АД на характеристиках при скорости w
+    const imTorque = (w) => ims.reduce((sum, im) => sum + kloss(im, w), 0);
+    // всё, что действует на вал, кроме источников момента
+    const passive = (w) => imTorque(w) - Math.sign(w) * brakeM(w) - friction(w);
+    const shaftTorque = (w) => passive(w) + torqueTarget;
+    if (speedTarget !== null) {
+      // жёсткий источник скорости (замкнутый контур): вал следует за заданием
+      this.speed = lag(this.speed, speedTarget, dt, anyEnergized ? 0.8 : 1.5);
+    } else {
+      // J·dω/dt = ΣM: неявный шаг Эйлера с линеаризацией — устойчив на крутых участках
+      // характеристик. Момент без нагрузки разгоняет вал до срабатывания защиты по скорости.
+      const w = this.speed;
+      const F = shaftTorque(w);
+      const dF = (shaftTorque(w + 1) - shaftTorque(w - 1)) / 2;
+      this.speed = w + dt * F * RPM_PER_NM / (1 - dt * Math.min(0, dF) * RPM_PER_NM);
     }
-    this.speed = lag(this.speed, target, dt, tau);
     if (Math.abs(this.speed) < 1) this.speed = 0;
-    const friction = 0.0005 * this.speed;
-    this.torque = lag(this.torque, dispTorque !== 0 ? dispTorque : friction, dt, 0.4);
+    // показание датчика момента: момент в муфте, положительный — когда нагрузочная
+    // машина (вторая в агрегате) крутит испытуемую (первую)
+    const idA = bench.motors[0].id;
+    const imA = ims.find(im => im.id === idA), imB = ims.find(im => im.id !== idA);
+    let dispTorque = torqueTarget;
+    if (dispTorque === 0 && imA) dispTorque = -kloss(imA, this.speed);
+    else if (dispTorque === 0 && imB) dispTorque = kloss(imB, this.speed);
+    else if (dispTorque === 0 && brakes.length) dispTorque = Math.sign(this.speed) * brakeM(this.speed);
+    else if (dispTorque === 0) dispTorque = 0.0005 * this.speed;
+    this.torque = lag(this.torque, dispTorque, dt, 0.4);
+
+    // состояние АД на характеристиках: скольжение, опрокидывание
+    for (const im of ims) {
+      const st = motors[im.id];
+      const name = bench.motors.find(x => x.id === im.id).title.split(' — ')[0];
+      const sl = (im.w0 - this.speed) / im.w0;
+      const stalled = Math.abs(this.speed) < 0.1 * Math.abs(im.w0) && shaftTorque(this.speed) * Math.sign(im.w0) <= 0;
+      if (stalled) {
+        st.state = 'stall';
+        st.note += ', момент нагрузки больше критического — опрокидывание';
+        if (!this.stalled[im.id]) events.push({ level: 'warn', text: `${name}: опрокидывание — момент нагрузки больше критического (Mк = ${Math.round(im.mk)} Нм), ток статора недопустимо велик` });
+      } else st.note += `, s = ${Math.round(sl * 100)} %${sl < -0.005 ? ' (генераторный режим)' : sl > 1 ? ' (противовключение)' : ''}`;
+      this.stalled[im.id] = stalled;
+    }
+    for (const id of Object.keys(this.stalled)) if (!ims.some(im => im.id === id)) this.stalled[id] = false;
+
+    // рекуперация: генераторный режим ПЧ без тормозного резистора на Br+/Br− — перенапряжение звена ПТ
+    if (fcDrive) {
+      const conv = bench.converters.find(c => c.id === fcDrive.dev);
+      let mFc; // момент машины, питаемой от ПЧ, на валу
+      if (fcDrive.kind === 'torque') mFc = torqueTarget;
+      else if (fcDrive.kind === 'im') mFc = kloss(fcDrive.im, this.speed);
+      else mFc = -passive(this.speed);
+      const pMech = mFc * this.speed * 2 * Math.PI / 60;
+      if (conv.brake && pMech < -REGEN_W) {
+        const [bp, bn] = conv.brake;
+        const shorted = nl.same(bp, bn);
+        const hasR = !shorted && (bench.resistors || []).some(r => (nl.same(bp, r.a) && nl.same(bn, r.b)) || (nl.same(bp, r.b) && nl.same(bn, r.a)));
+        if (shorted) events.push({ level: 'fault', dev: conv.id, fault: 'КЗ ТОРМОЗНОГО КЛЮЧА', text: 'ПЧ: выводы Br+ и Br− замкнуты накоротко — при рекуперации сгорел тормозной ключ' });
+        else if (!hasR) {
+          this.regen[conv.id] = (this.regen[conv.id] || 0) + dt;
+          if (this.regen[conv.id] >= REGEN_T) events.push({ level: 'fault', dev: conv.id, fault: 'ПЕРЕНАПРЯЖЕНИЕ ЗПТ', text: `ПЧ: перенапряжение звена постоянного тока — рекуперация ${Math.round(-pMech)} Вт без тормозного резистора на Br+/Br−` });
+        } else this.regen[conv.id] = 0;
+      } else this.regen[conv.id] = 0;
+    }
 
     // --- токи по грубым оценкам ---
     for (const m of bench.motors) {
@@ -274,9 +353,21 @@ export class QuasiStaticModel extends DriveModel {
         const x = b ? Math.abs(this.speed) / b.wk : 0;
         if (m.kind === 'im-wound') cur.rotor = b ? b.ieq * x / Math.sqrt(1 + x * x) : 0;
       } else {
-        const stall = st.state === 'stall';
-        cur.stator = stall ? inom * 3 : st.state === 'run' ? 0.3 * inom + Math.abs(this.torque) / 55 * inom : 0;
-        if (m.kind === 'im-wound') cur.rotor = cur.stator * 0.8;
+        const im = ims.find(im => im.id === m.id);
+        if (im) {
+          // ток ротора по Г-образной схеме: I2 = I2к·s/√(s² + sк²), I2к — пусковой при Rдоб = 0;
+          // ток статора — геометрическая сумма с намагничивающим
+          const sl = (im.w0 - this.speed) / im.w0;
+          const i2 = 4 * inom * im.u * Math.abs(sl) / Math.hypot(sl, im.sk);
+          const i0 = 0.35 * inom * im.u;
+          cur.stator = Math.hypot(i0, i2);
+          if (m.kind === 'im-wound') cur.rotor = 1.1 * i2;
+        } else {
+          // статор под напряжением, но ротор разомкнут / концы не соединены — только намагничивающий ток;
+          // от ПЧ в режимах M / ω — ток по моменту
+          cur.stator = st.state === 'stall' ? 0.35 * inom : st.state === 'run' ? 0.3 * inom + Math.abs(this.torque) / 55 * inom : 0;
+          if (m.kind === 'im-wound') cur.rotor = st.state === 'run' ? cur.stator * 0.8 : 0;
+        }
       }
     }
 

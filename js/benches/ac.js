@@ -247,9 +247,11 @@ export const acBench = {
 
   converters: [
     {
-      id: 'fc', kind: 'fc', title: 'Преобразователь частоты', model: 'ABB ACS880', cabinet: 'Б6',
+      id: 'fc', kind: 'fc', title: 'Преобразователь частоты', cabinet: 'Б6',
       in: { A: 'fc.in.A', B: 'fc.in.B', C: 'fc.in.C' },
       out: { U: 'fc.out.U', V: 'fc.out.V', W: 'fc.out.W' },
+      // выводы тормозного ключа: без резистора между ними рекуперация вызывает перенапряжение звена ПТ
+      brake: ['fc.br.Br+', 'fc.br.Br−'],
       modes: [
         { id: 'f', label: 'f', unit: 'Гц', max: 70 },
         { id: 'w', label: 'ω', unit: 'об/мин', max: 1500 },
