@@ -268,7 +268,7 @@ export const dcBench = {
     { id: 'PV2', kind: 'V', min: -300, max: 300, ticks: 6, across: ['m1.Я+.1', 'm1.Я−.1'] },
     { id: 'n', kind: 'n', min: -3, max: 3, mult: 1000, ticks: 6, unit: 'об/мин', source: 'speed' },
     { id: 'PA1', kind: 'A', min: 0, max: 2.5, ticks: 5, series: { motor: 'm1', winding: 'field' } },
-    { id: 'PA2', kind: 'A', min: -50, max: 50, ticks: 10, series: { motor: 'm1', winding: 'arm' } },
+    { id: 'PA2', kind: 'A', min: -50, max: 50, ticks: 4, series: { motor: 'm1', winding: 'arm' } },
     { id: 'M', kind: 'M', min: -2, max: 2, mult: 20, ticks: 4, unit: 'Нм', source: 'torque' },
     { id: 'PW', kind: 'PW', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
   ],
