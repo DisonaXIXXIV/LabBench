@@ -265,7 +265,7 @@ export const dcBench = {
 
   meters: [
     { id: 'PV1', kind: 'V', min: 0, max: 250, ticks: 5, across: ['m1.В+.1', 'm1.В−.1'] },
-    { id: 'PV2', kind: 'V', min: -300, max: 300, ticks: 6, across: ['m1.Я+.1', 'm1.Я−.1'] },
+    { id: 'PV2', kind: 'V', min: -300, max: 300, ticks: 4, across: ['m1.Я+.1', 'm1.Я−.1'] },
     { id: 'n', kind: 'n', min: -3, max: 3, mult: 1000, ticks: 6, unit: 'об/мин', source: 'speed' },
     { id: 'PA1', kind: 'A', min: 0, max: 2.5, ticks: 5, series: { motor: 'm1', winding: 'field' } },
     { id: 'PA2', kind: 'A', min: -50, max: 50, ticks: 4, series: { motor: 'm1', winding: 'arm' } },
