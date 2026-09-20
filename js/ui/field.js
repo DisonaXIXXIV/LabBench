@@ -35,11 +35,16 @@ export class Field {
     const { w, h } = this.bench.field;
     const root = svg('svg', { viewBox: `0 0 ${w} ${h}`, class: 'field-svg' + (COARSE ? ' touch' : '') });
     this.svg = root;
-    const defs = svg('defs', {}, root);
-    defs.innerHTML = `
-      <linearGradient id="fld-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dcd9"/><stop offset="1" stop-color="#c6cac8"/></linearGradient>
-      <linearGradient id="fld-rail" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6e8ea"/><stop offset=".5" stop-color="#b3b8be"/><stop offset="1" stop-color="#8e949b"/></linearGradient>
-      <filter id="fld-shadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity=".35"/></filter>`;
+    // Градиенты и фильтр — в отдельном SVG в body, общем для поля и его миниатюры за стеклом двери.
+    // Если бы defs лежали в самом поле, клон-миниатюра дублировал бы id, а url(#…) берёт первый
+    // элемент документа; из скрытого (display: none) поддерева заливка не применяется — поле чернеет.
+    if (!document.getElementById('field-defs')) {
+      const shared = svg('svg', { id: 'field-defs', width: 0, height: 0, style: 'position:absolute', 'aria-hidden': 'true' }, document.body);
+      svg('defs', {}, shared).innerHTML = `
+        <linearGradient id="fld-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dcd9"/><stop offset="1" stop-color="#c6cac8"/></linearGradient>
+        <linearGradient id="fld-rail" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6e8ea"/><stop offset=".5" stop-color="#b3b8be"/><stop offset="1" stop-color="#8e949b"/></linearGradient>
+        <filter id="fld-shadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity=".35"/></filter>`;
+    }
     svg('rect', { x: 0, y: 0, width: w, height: h, class: 'field-bg' }, root);
     const art = svg('g', { class: 'art' }, root);
     art.innerHTML = this.bench.field.art();

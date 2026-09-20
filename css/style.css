@@ -13,8 +13,6 @@
   --lamp-green: #34d058;
   --lamp-red: #ff4d4d;
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  /* стенд всегда светлый: не даём браузеру принудительно затемнять страницу */
-  color-scheme: only light;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
