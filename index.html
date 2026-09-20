@@ -15,7 +15,8 @@
     <button data-bench="dc">Стенд ДПТ <small>шкафы А1–А6</small></button>
     <button data-bench="ac">Стенд АД <small>шкафы Б1–Б6</small></button>
   </nav>
-  <div class="toolbar">
+  <button id="btn-menu" class="tb menu-btn" title="Действия со схемой" aria-label="Меню">⋯</button>
+  <div class="toolbar" id="toolbar">
     <button id="btn-check" class="tb" title="Статическая проверка собранной схемы">Проверить схему</button>
     <button id="btn-clear" class="tb" title="Удалить все провода">Снять провода</button>
     <button id="btn-save" class="tb" title="Сохранить схему в файл">Сохранить</button>
@@ -23,6 +24,9 @@
     <div class="wire-colors" id="wire-colors" title="Цвет провода"></div>
   </div>
 </header>
+
+<!-- миникарта стенда и переключение зон (только на узких экранах) -->
+<nav id="minimap" class="minimap"></nav>
 
 <div id="app-outer">
 <main id="app">
@@ -94,6 +98,7 @@
         <span class="door-state" id="door-state"></span>
         <span class="zoom-ctl"><button id="zoom-out" title="Уменьшить">−</button><button id="zoom-fit" title="По ширине">100%</button><button id="zoom-in" title="Увеличить">+</button></span>
         <button id="btn-door" class="door-btn"></button>
+        <button id="btn-wire-del" class="door-btn wire-del" title="Удалить выбранный провод">Удалить провод</button>
         <button id="btn-field-close" class="door-btn" title="Свернуть увеличенный вид">Свернуть ▴</button>
       </div>
       <div id="field-panel" class="field-panel"></div>

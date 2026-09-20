@@ -14,6 +14,7 @@ export class Log {
     this.items.push({ level, text, nodes, count: 1, t: new Date() });
     if (this.items.length > this.max) this.items.shift();
     this.render();
+    this.onPush?.(level, text);
   }
   info(t, n) { this.push('info', t, n); }
   ok(t, n) { this.push('ok', t, n); }
@@ -44,6 +45,7 @@ export class Log {
         d.title = 'Показать клеммы';
         d.addEventListener('mouseenter', () => this.onHighlight(it.nodes));
         d.addEventListener('mouseleave', () => this.onHighlight([]));
+        d.addEventListener('click', () => this.onHighlight(it.nodes)); // тач: подсветить по тапу
       }
       el.appendChild(d);
     }

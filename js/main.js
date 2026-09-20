@@ -12,6 +12,7 @@ import { ConverterPanel } from './ui/converters.js';
 import { MotorsPanel } from './ui/motors.js';
 import { FieldControls } from './ui/fieldctl.js';
 import { Log } from './ui/log.js';
+import { MobileLayout } from './ui/mobile.js';
 
 const BENCHES = { dc: dcBench, ac: acBench };
 const WIRE_COLORS = ['#d02020', '#1a1a1a', '#1f5fd0', '#e8b800', '#1e9e3e', '#f0f0f0', '#8a4b1f'];
@@ -19,10 +20,12 @@ const WIRE_COLORS = ['#d02020', '#1a1a1a', '#1f5fd0', '#e8b800', '#1e9e3e', '#f0
 const $ = s => document.querySelector(s);
 const hintEl = $('#hint');
 let hintTimer = null;
+/** Подсказка внизу экрана: постоянная (пока не сменится) или всплывающая на 2,5 с (flash: true — красная, 'warn' — жёлтая). */
 function hint(text, flash = false) {
   hintEl.textContent = text;
   hintEl.classList.toggle('show', !!text);
-  hintEl.classList.toggle('flash', flash);
+  hintEl.classList.toggle('flash', flash === true);
+  hintEl.classList.toggle('warn', flash === 'warn');
   clearTimeout(hintTimer);
   if (flash) hintTimer = setTimeout(() => hintEl.classList.remove('show'), 2500);
 }
@@ -32,6 +35,7 @@ class App {
     this.benchId = localStorage.getItem('abblab.bench') || 'dc';
     this.fieldOpen = localStorage.getItem('abblab.fieldOpen') === '1';
     this.buildToolbar();
+    this.mobile = new MobileLayout(this);
     this.mount(this.benchId);
     this.setupFit();
     this.last = performance.now();
@@ -51,7 +55,12 @@ class App {
       d.addEventListener('click', () => { this.state.wireColor = c; this.updateColorUI(); saveState(this.state); });
       wc.appendChild(d);
     }
-    $('#btn-check').addEventListener('click', () => this.log.report(staticCheck(this.bench, this.state.wires)));
+    $('#btn-check').addEventListener('click', () => {
+      this.log.report(staticCheck(this.bench, this.state.wires));
+      if (this.mobile.active) { this.mobile.select('pc'); this.toggleMenu(false); }
+    });
+    $('#btn-menu').addEventListener('click', () => this.toggleMenu());
+    $('#btn-wire-del').addEventListener('click', () => { if (this.field.selected) this.field.removeWire(this.field.selected); });
     $('#btn-clear').addEventListener('click', () => {
       this.setFieldOpen(true);
       if (!this.state.door) { hint('Сначала откройте дверь монтажного отсека', true); return; }
@@ -77,7 +86,7 @@ class App {
       } catch (err) { this.log.error(`Загрузка: ${err.message}`); }
       e.target.value = '';
     });
-    $('#btn-field').addEventListener('click', () => this.setFieldOpen(!this.fieldOpen));
+    $('#btn-field').addEventListener('click', () => this.setFieldOpen(this.mobile.active || !this.fieldOpen));
     $('#btn-field-close').addEventListener('click', () => this.setFieldOpen(false));
     $('#btn-door').addEventListener('click', () => { this.rt.toggleDoor(); this.syncDoor(); saveState(this.state); });
     const zoomLabel = z => { $('#zoom-fit').textContent = `${Math.round(z * 100)}%`; };
@@ -87,6 +96,29 @@ class App {
     this.zoomLabel = zoomLabel;
     $('#btn-log-clear').addEventListener('click', () => this.log.clear());
     $('#btn-log-clear2').addEventListener('click', () => this.log.clear());
+  }
+
+  /** Выпадающее меню действий со схемой в мобильной шапке. */
+  toggleMenu(show) {
+    const tb = $('#toolbar');
+    tb.classList.toggle('show', show ?? !tb.classList.contains('show'));
+  }
+
+  /** Смена компоновки (мобильная ↔ обычная): цвета проводов переезжают из шапки в заголовок поля и обратно. */
+  onModeChange(mobile) {
+    const wc = $('#wire-colors');
+    if (mobile) $('#btn-wire-del').before(wc);
+    else $('#toolbar').appendChild(wc);
+    this.toggleMenu(false);
+    this.syncField();
+    this.fit?.();
+  }
+
+  /** Показана другая зона стенда: закрыть меню, поле — сбросить масштаб под новую ширину. */
+  onZoneChange(id) {
+    this.toggleMenu(false);
+    this.syncField();
+    if (id === 'field') this.zoomLabel(this.field.setZoom(this.field.zoom));
   }
 
   updateColorUI() {
@@ -110,6 +142,11 @@ class App {
 
     this.state = loadState(bench);
     this.log = new Log([$('#log'), $('#log2')], ids => { if (ids.length) this.setFieldOpen(true); this.field?.highlight(ids); });
+    this.log.onPush = (level, text) => {
+      this.mobile.notify(level);
+      // на телефоне экран ПК не виден постоянно — аварии и предупреждения показываем всплывающей подсказкой
+      if (this.mobile.active && this.mobile.zone !== 'pc' && (level === 'error' || level === 'warn')) hint(text, level === 'error' ? true : 'warn');
+    };
     this.model = createModel(bench);
     this.rt = new BenchRuntime(bench, this.state, this.model, this.log);
 
@@ -124,12 +161,15 @@ class App {
       hint,
       canEdit: () => this.state.door,
       onZoom: z => this.zoomLabel(z),
+      onSelect: id => document.querySelector('.cabinet-field').classList.toggle('has-sel', !!id),
     });
+    document.querySelector('.cabinet-field').classList.remove('has-sel');
     this.zoomLabel(1);
     this.fieldCtl = new FieldControls($('#field-controls'), bench, this.rt);
     this.motors = new MotorsPanel($('#motors'), bench);
     this.updateColorUI();
     this.syncDoor();
+    this.mobile.mount();
     this.syncField();
     this.refreshPreview();
     this.fit?.();
@@ -139,6 +179,8 @@ class App {
 
   /** Показать/скрыть наборное поле (сам монтажный отсек); органы под ним остаются на виду. */
   setFieldOpen(open) {
+    // на телефоне поле — отдельная зона стенда; «свернуть» возвращает к приборам того же шкафа
+    if (this.mobile.active) { this.mobile.select(open ? 'field' : 'meters'); return; }
     if (this.fieldOpen === open) return;
     this.fieldOpen = open;
     localStorage.setItem('abblab.fieldOpen', open ? '1' : '0');
@@ -148,8 +190,8 @@ class App {
   }
 
   syncField() {
-    const open = this.fieldOpen;
-    document.querySelector('.cab-row-field').classList.toggle('open', open);
+    const open = this.mobile.active ? this.mobile.zone === 'field' : this.fieldOpen;
+    document.querySelector('.cab-row-field').classList.toggle('open', open && !this.mobile.active);
     $('#btn-field').classList.toggle('open', open);
     $('#ft-title').textContent = open ? 'Свернуть наборное поле' : 'Открыть наборное поле';
     $('#ft-sub').textContent = open ? 'увеличенный вид показан ниже' : 'монтажный отсек за стеклянной дверью';
@@ -182,6 +224,7 @@ class App {
     let scale = 1;
     const fitH = () => { outer.style.height = `${Math.ceil(app.offsetHeight * scale)}px`; };
     const fit = () => {
+      if (this.mobile.active) { app.style.width = ''; app.style.transform = ''; outer.style.height = ''; scale = 1; bench.classList.remove('measure'); return; }
       bench.classList.add('measure');
       app.style.width = '';
       const natural = bench.offsetWidth + 36;
@@ -250,6 +293,7 @@ class App {
     this.field.update(view);
     this.fieldCtl.update(view);
     this.motors.update(view, dt);
+    this.mobile.update(view, dt);
     // автосохранение положений органов управления (нечасто)
     this.saveAcc = (this.saveAcc || 0) + dt;
     if (this.saveAcc > 2) { this.saveAcc = 0; saveState(this.state); }

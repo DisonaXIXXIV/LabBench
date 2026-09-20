@@ -2,6 +2,9 @@
 import { TERM } from '../benches/common.js';
 const NS = 'http://www.w3.org/2000/svg';
 const CLAMP_R = 4;
+// тач-устройства: зоны попадания зажимов и проводов шире, подсказки без hover
+const COARSE = window.matchMedia('(pointer: coarse)').matches;
+const HIT_R = COARSE ? 11 : 7.5;
 
 function svg(tag, attrs = {}, parent) {
   const el = document.createElementNS(NS, tag);
@@ -30,7 +33,7 @@ export class Field {
 
   build() {
     const { w, h } = this.bench.field;
-    const root = svg('svg', { viewBox: `0 0 ${w} ${h}`, class: 'field-svg' });
+    const root = svg('svg', { viewBox: `0 0 ${w} ${h}`, class: 'field-svg' + (COARSE ? ' touch' : '') });
     this.svg = root;
     const defs = svg('defs', {}, root);
     defs.innerHTML = `
@@ -71,7 +74,7 @@ export class Field {
         const cx = c === 0 ? -TERM.clampDx : TERM.clampDx;
         svg('rect', { x: cx - 2.5, y: fy + (up ? 5 : -10), width: 5, height: 5, class: 'node-btn' }, g);
         const circ = svg('circle', { cx, cy: fy, r: CLAMP_R, class: 'clamp' }, g);
-        svg('circle', { cx, cy: fy, r: 7.5, class: 'clamp-hit', 'data-node': n.id, 'data-clamp': c }, g);
+        svg('circle', { cx, cy: fy, r: HIT_R, class: 'clamp-hit', 'data-node': n.id, 'data-clamp': c }, g);
         this.clampEls.set(`${n.id}:${c}`, circ);
       }
       g.addEventListener('mouseenter', () => this.cb.hint(this.nodeHint(n)));
@@ -94,11 +97,61 @@ export class Field {
       e.preventDefault();
       this.cb.onZoom?.(this.setZoom(this.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
     }, { passive: false });
+    this.setupTouch();
     this.door = document.createElement('div');
     this.door.className = 'door';
     this.door.innerHTML = '<div class="door-glass"></div><div class="door-handle"></div>';
     this.container.appendChild(this.door);
     this.refreshWires();
+  }
+
+  /** Пальцами: один — прокрутка поля, два — масштаб вокруг точки между ними.
+   *  Работает там, где у прокручиваемого контейнера touch-action: none (мобильная компоновка);
+   *  иначе браузер сам прокручивает и отменяет указатель (pointercancel). */
+  setupTouch() {
+    const sc = this.scroller;
+    const touches = new Map();
+    let pan = null, pinch = null;
+    const dist = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    const mid = () => { const [a, b] = [...touches.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+    const startPan = t => { pan = { x: t.x, y: t.y, sl: sc.scrollLeft, st: sc.scrollTop }; };
+    sc.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'touch') return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.moved = false;
+      if (touches.size === 2) {
+        pan = null;
+        const r = sc.getBoundingClientRect(), m = mid();
+        pinch = { d0: dist(), zoom0: this.zoom, cx: sc.scrollLeft + m.x - r.left, cy: sc.scrollTop + m.y - r.top };
+      } else if (touches.size === 1) startPan(touches.get(e.pointerId));
+    });
+    sc.addEventListener('pointermove', e => {
+      const t = touches.get(e.pointerId);
+      if (!t) return;
+      t.x = e.clientX; t.y = e.clientY;
+      if (pinch && touches.size === 2) {
+        const r = sc.getBoundingClientRect(), m = mid();
+        const z = this.setZoom(pinch.zoom0 * dist() / pinch.d0);
+        const k = z / pinch.zoom0;
+        sc.scrollLeft = pinch.cx * k - (m.x - r.left);
+        sc.scrollTop = pinch.cy * k - (m.y - r.top);
+        this.cb.onZoom?.(z);
+        this.moved = true;
+      } else if (pan) {
+        const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+        if (Math.hypot(dx, dy) > 6) this.moved = true;
+        sc.scrollLeft = pan.sl - dx;
+        sc.scrollTop = pan.st - dy;
+      }
+    });
+    const end = e => {
+      touches.delete(e.pointerId);
+      if (touches.size < 2) pinch = null;
+      if (touches.size === 1) startPan([...touches.values()][0]);
+      else if (!touches.size) pan = null;
+    };
+    sc.addEventListener('pointerup', end);
+    sc.addEventListener('pointercancel', end);
   }
 
   nodeHint(n) {
@@ -149,7 +202,15 @@ export class Field {
     }
   }
 
+  select(id) {
+    if (this.selected === id) return;
+    this.selected = id;
+    this.cb.onSelect?.(id);
+  }
+
   onClick(e) {
+    if (this.moved) { this.moved = false; return; } // конец прокрутки пальцем, не тап
+    this.highlight([]); // подсветка клемм из журнала снимается первым же кликом по полю
     const clamp = e.target.closest('.clamp-hit');
     if (clamp) {
       if (!this.cb.canEdit()) { this.cb.hint('Откройте дверь монтажного отсека, чтобы менять схему', true); return; }
@@ -158,7 +219,7 @@ export class Field {
       if (!this.pending) {
         this.pending = ref;
         this.clampEls.get(`${ref.node}:${ref.clamp}`)?.classList.add('pending');
-        this.cb.hint('Выберите второй зажим (Esc — отмена)');
+        this.cb.hint(COARSE ? 'Выберите второй зажим (повторный тап — отмена)' : 'Выберите второй зажим (Esc — отмена)');
       } else {
         if (this.pending.node === ref.node && this.pending.clamp === ref.clamp) { this.cancelPending(); return; }
         if (this.pending.node === ref.node) { this.cb.hint('Оба зажима одного клеммника уже соединены шиной', true); return; }
@@ -171,13 +232,16 @@ export class Field {
     }
     const wire = e.target.closest('.wire');
     if (wire) {
-      this.selected = wire.dataset.id;
+      this.select(wire.dataset.id);
       this.refreshWires();
-      this.cb.hint('Провод выбран: Delete — удалить, правая кнопка — удалить сразу');
+      this.cb.hint(COARSE ? 'Провод выбран — кнопка «Удалить провод» в заголовке' : 'Провод выбран: Delete — удалить, правая кнопка — удалить сразу');
       return;
     }
+    // тап по корпусу клеммника (мимо зажима) — подсказка, что это за клемма
+    const node = e.target.closest('.node');
+    if (node) { this.cb.hint(this.nodeHint(this.nodeById.get(node.dataset.id)), true); return; }
     if (this.pending) this.cancelPending();
-    if (this.selected) { this.selected = null; this.refreshWires(); }
+    if (this.selected) { this.select(null); this.refreshWires(); }
   }
 
   onContext(e) {
@@ -195,7 +259,7 @@ export class Field {
 
   removeWire(id) {
     this.state.wires = this.state.wires.filter(w => w.id !== id);
-    if (this.selected === id) this.selected = null;
+    if (this.selected === id) this.select(null);
     this.refreshWires();
     this.cb.onChange();
   }
@@ -217,20 +281,22 @@ export class Field {
 
   clearWires() {
     this.state.wires = [];
-    this.selected = null;
+    this.select(null);
     this.refreshWires();
     this.cb.onChange();
   }
 
   setWires(wires) {
     this.state.wires = wires;
-    this.selected = null;
+    this.select(null);
     this.refreshWires();
     this.cb.onChange();
   }
 
   setZoom(z) {
-    this.zoom = Math.max(1, Math.min(4, z));
+    // на узком экране поле можно растянуть сильнее — до ~4000 px, чтобы попадать пальцем в зажимы
+    const max = Math.max(4, 4000 / Math.max(200, this.scroller.clientWidth));
+    this.zoom = Math.max(1, Math.min(max, z));
     this.svg.style.width = `${this.zoom * 100}%`;
     this.container.classList.toggle('zoomed', this.zoom > 1);
     return this.zoom;
