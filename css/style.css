@@ -474,6 +474,7 @@ button { font: inherit; cursor: pointer; }
 .mt-note { color: #445; }
 .mt-note.st-run { color: #1a6e2e; }
 .mt-note.st-stall { color: var(--warn); }
+.mt-note.st-brake { color: #1a4f8a; }
 .mt-note.st-runaway { color: var(--err); font-weight: 700; animation: pulse .5s infinite alternate; }
 @keyframes pulse { to { opacity: .4; } }
 

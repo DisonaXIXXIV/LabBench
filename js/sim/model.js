@@ -16,7 +16,7 @@
 //     potentials: Map(net -> {re, im}) — потенциалы сетей (В, фаза-нейтраль),
 //     meters:  {PV1: value, PA1: value, ...} — показания всех приборов стенда,
 //     shaft:   {speed (об/мин), torque (Нм)},
-//     motors:  {m1: {state:'run'|'stop'|'stall'|'runaway', note}},
+//     motors:  {m1: {state:'run'|'stop'|'stall'|'brake'|'runaway', note}},
 //     currents:{m1: {field: A, arm: A}, ...},
 //     pw:      {U, I, P} — показания анализатора сети,
 //     events:  [{level, text}] — сообщения (защиты и т.п.)
@@ -37,6 +37,11 @@ const scale = (v, k) => ({ re: v.re * k, im: v.im * k });
 const sub = (a, b) => ({ re: a.re - b.re, im: a.im - b.im });
 const mag = (v) => Math.hypot(v.re, v.im);
 const lag = (cur, target, dt, tau) => cur + (target - cur) * Math.min(1, dt / tau);
+const fmt = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
+// параметры АД для динамического торможения (переопределяются в bench.motors[].im):
+// r1 — сопротивление фазы статора, Ом; r2 — ротора (приведённое), Ом;
+// xm — сопротивление намагничивания, Ом; mk — максимальный тормозной момент при I_экв = Iном, Нм
+const IM_DEFAULTS = { r1: 0.5, r2: 0.3, xm: 15, mk: 40 };
 
 /**
  * Квазистатическая модель: потенциалы сетей по источникам, показания
@@ -117,6 +122,7 @@ export class QuasiStaticModel extends DriveModel {
     let speedTarget = null; // об/мин
     let torqueTarget = 0;   // Нм
     let anyEnergized = false;
+    const brakes = [];      // АД в динамическом торможении: {id, mk, wk, ieq}
 
     for (const m of bench.motors) {
       const st = { state: 'stop', note: '' };
@@ -160,9 +166,12 @@ export class QuasiStaticModel extends DriveModel {
         }
       } else if (m.kind === 'im-wound' || m.kind === 'im-cage') {
         const sync = m.nominal.speed;
+        const inom = m.nominal.current || 20;
+        const name = m.title.split(' — ')[0];
+        const P = { ...IM_DEFAULTS, ...(m.im || {}) };
         const st3 = m.windings.stator;
         const drv = this.acSource(ctx, st3);
-        let closed = true, rotorNote = '';
+        let closed = true, rotorNote = '', rExt = 0;
         if (m.kind === 'im-cage') {
           const en = m.windings.ends.map(n => nl.netOf(n));
           const sn = st3.map(n => nl.netOf(n));
@@ -171,18 +180,18 @@ export class QuasiStaticModel extends DriveModel {
           closed = star || delta;
           rotorNote = closed ? (star ? 'звезда' : 'треугольник') : 'концы X,Y,Z не соединены';
         } else {
-          const rn = m.windings.rotor.map(n => nl.netOf(n));
-          const shorted = rn.every(n => n === rn[0]);
-          const viaR = !shorted && rn.every(n => n.nodes.some(id => bench.resistors.some(r => r.a === id || r.b === id)));
-          closed = shorted || viaR;
-          rotorNote = shorted ? 'ротор замкнут' : viaR ? 'ротор через резисторы' : 'ротор разомкнут';
+          rExt = this.rotorExtR(ctx, m.windings.rotor);
+          closed = rExt !== null;
+          rotorNote = !closed ? 'ротор разомкнут' : rExt < 0.05 ? 'ротор замкнут' : `ротор через ${fmt(rExt)} Ом`;
+          if (!closed) rExt = 0;
         }
         if (drv) {
           anyEnergized = true;
           st.note = rotorNote;
           if (!closed) { st.state = 'stall'; }
           else if (drv.kind === 'mains') {
-            speedTarget = speedTarget ?? sync * (rotorNote === 'ротор через резисторы' ? 0.9 : 0.96);
+            // скольжение растёт с добавочным сопротивлением ротора
+            speedTarget = speedTarget ?? sync * (1 - Math.min(0.3, 0.04 * (1 + rExt / (4 * P.r2))));
             st.state = 'run';
           } else {
             const cv = ctx.converters[drv.dev];
@@ -193,19 +202,63 @@ export class QuasiStaticModel extends DriveModel {
             else speedTarget = speedTarget ?? cv.ref;
             st.state = 'run';
           }
-        } else if (closed === false && m.kind === 'im-cage') st.note = '';
+        } else {
+          // динамическое торможение: постоянный ток от ТП в двух (трёх) фазах статора
+          const dc = this.dcSource(ctx, st3);
+          if (dc) {
+            anyEnergized = true;
+            const idc = Math.abs(dc.u) / ((dc.parallel ? 1.5 : 2) * P.r1);
+            cur.stator = idc;
+            cur.dc = true;
+            if (!closed) {
+              st.state = 'stall';
+              st.note = `постоянный ток ${fmt(idc)} А в статоре, ${rotorNote} — момента нет`;
+            } else {
+              // эквивалентный переменный ток по МДС; момент ~ I², с учётом насыщения
+              const ieq = idc * (dc.parallel ? Math.SQRT1_2 : Math.sqrt(2 / 3));
+              const k = Math.min(ieq / inom, 1.5);
+              const mk = P.mk * k * k;
+              const wk = sync * (P.r2 + rExt) / P.xm;
+              brakes.push({ id: m.id, mk, wk, ieq });
+              st.state = 'brake';
+              st.note = `I = ${fmt(idc)} А, ${rotorNote}, ωк ≈ ${Math.round(wk)} об/мин`;
+            }
+            if (idc > 1.5 * inom) events.push({ level: 'warn', text: `${name}: постоянный ток статора больше 1,5·Iном — перегрев обмотки, снизьте задание ТП` });
+          } else if (closed === false && m.kind === 'im-cage') st.note = '';
+        }
         currents[m.id] = cur;
       }
       motors[m.id] = st;
     }
 
     // --- вал ---
+    // суммарный тормозной момент АД в динамическом торможении при скорости w
+    const brakeM = (w) => brakes.reduce((sum, b) => { const x = Math.abs(w) / b.wk; return sum + 2 * b.mk * x / (1 + x * x); }, 0);
     let target = speedTarget ?? 0;
-    if (speedTarget === null && torqueTarget !== 0) target = Math.sign(torqueTarget) * 300; // момент без регулятора скорости — вал «уплывает»
-    this.speed = lag(this.speed, target, dt, anyEnergized ? 0.8 : 1.5);
+    let tau = anyEnergized ? 0.8 : 1.5;
+    let dispTorque = torqueTarget;
+    if (speedTarget === null && torqueTarget !== 0) {
+      if (brakes.length) {
+        // приводной момент против тормозной характеристики: устойчивая точка на
+        // восходящей ветви; если момент больше максимума тормозного — разгон
+        const M = Math.abs(torqueTarget);
+        let peakW = 0, peakM = 0;
+        for (let w = 0; w <= 2000; w += 5) { const mw = brakeM(w); if (mw > peakM) { peakM = mw; peakW = w; } }
+        if (M >= peakM) target = Math.sign(torqueTarget) * 2000;
+        else {
+          let lo = 0, hi = peakW;
+          for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (brakeM(mid) < M) lo = mid; else hi = mid; }
+          target = Math.sign(torqueTarget) * hi;
+        }
+      } else target = Math.sign(torqueTarget) * 300; // момент без регулятора скорости — вал «уплывает»
+    } else if (brakes.length) {
+      if (speedTarget === null) tau = 0.5; // ничто не крутит — вал тормозится до нуля
+      dispTorque = Math.sign(this.speed) * brakeM(this.speed);
+    }
+    this.speed = lag(this.speed, target, dt, tau);
     if (Math.abs(this.speed) < 1) this.speed = 0;
     const friction = 0.0005 * this.speed;
-    this.torque = lag(this.torque, torqueTarget !== 0 ? torqueTarget : friction, dt, 0.4);
+    this.torque = lag(this.torque, dispTorque !== 0 ? dispTorque : friction, dt, 0.4);
 
     // --- токи по грубым оценкам ---
     for (const m of bench.motors) {
@@ -215,6 +268,11 @@ export class QuasiStaticModel extends DriveModel {
       if (m.kind === 'dc') {
         const base = st.state === 'run' ? 2 + Math.abs(this.torque) * 1.0 : st.state === 'runaway' ? 8 : 0;
         cur.arm = Math.sign(Vdc(...m.windings.arm) || 1) * base;
+      } else if (cur.dc) {
+        // динамическое торможение: ток статора задан ТП, ток ротора растёт со скоростью
+        const b = brakes.find(b => b.id === m.id);
+        const x = b ? Math.abs(this.speed) / b.wk : 0;
+        if (m.kind === 'im-wound') cur.rotor = b ? b.ieq * x / Math.sqrt(1 + x * x) : 0;
       } else {
         const stall = st.state === 'stall';
         cur.stator = stall ? inom * 3 : st.state === 'run' ? 0.3 * inom + Math.abs(this.torque) / 55 * inom : 0;
@@ -265,6 +323,64 @@ export class QuasiStaticModel extends DriveModel {
       return cv && cv.running && new Set(srcs.map(s => s.term)).size === 3 ? { kind: 'conv', dev: srcs[0].dev } : null;
     }
     return null;
+  }
+
+  /**
+   * Постоянный ток в статоре от работающего ТП (динамическое торможение):
+   * на клеммниках обмотки только выводы «+»/«−» одного ТП, оба полюса
+   * присутствуют. parallel — «+» на одной фазе, «−» на двух (или наоборот).
+   */
+  dcSource(ctx, ids) {
+    const srcs = ids.map(id => ctx.nl.netOf(id).sources[0] || null);
+    const dev = srcs.find(Boolean)?.dev;
+    if (!dev || srcs.some(s => s && (s.kind !== 'conv' || s.dev !== dev))) return null;
+    const conv = this.bench.converters.find(c => c.id === dev);
+    if (!conv || conv.kind !== 'dc') return null;
+    const isP = t => t === '+' || t === 'Я+', isN = t => t === '−' || t === 'Я−';
+    if (srcs.some(s => s && !isP(s.term) && !isN(s.term))) return null; // обмотка возбуждения и т.п.
+    const nP = srcs.filter(s => s && isP(s.term)).length, nN = srcs.filter(s => s && isN(s.term)).length;
+    if (!nP || !nN) return null;
+    const cv = ctx.converters[dev];
+    if (!cv || !cv.running) return null;
+    return { dev, u: this.tpArmVoltage(conv, cv), parallel: nP + nN === 3 };
+  }
+
+  /**
+   * Добавочное сопротивление в фазе ротора, Ом: кольца замкнуты накоротко — 0,
+   * через резисторы (в т.ч. последовательные, через контакты KM) — среднее по
+   * фазам, цепь не замкнута — null.
+   */
+  rotorExtR(ctx, ids) {
+    const nl = ctx.nl;
+    const nets = ids.map(id => nl.netOf(id));
+    if (nets.every(n => n === nets[0])) return 0;
+    const adj = new Map();
+    const link = (a, b, ohm) => (adj.get(a) || adj.set(a, []).get(a)).push({ net: b, ohm });
+    for (const r of this.bench.resistors || []) {
+      const a = nl.netOf(r.a), b = nl.netOf(r.b);
+      if (!a || !b || a === b) continue;
+      link(a, b, r.ohm); link(b, a, r.ohm);
+    }
+    const dist = (from) => {
+      const d = new Map([[from, 0]]), done = new Set();
+      for (;;) {
+        let cur = null;
+        for (const [n, v] of d) if (!done.has(n) && (cur === null || v < d.get(cur))) cur = n;
+        if (cur === null) return d;
+        done.add(cur);
+        for (const e of adj.get(cur) || []) {
+          const nd = d.get(cur) + e.ohm;
+          if (!d.has(e.net) || nd < d.get(e.net)) d.set(e.net, nd);
+        }
+      }
+    };
+    let sum = 0;
+    for (let i = 0; i < nets.length; i++) {
+      const dj = dist(nets[i]).get(nets[(i + 1) % nets.length]);
+      if (dj === undefined) return null;
+      sum += dj;
+    }
+    return sum / (2 * nets.length); // звезда из R на фазу: каждая пара — 2R
   }
 
   /** Питается ли якорь от работающего ТП. */

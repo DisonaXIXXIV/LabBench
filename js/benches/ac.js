@@ -282,11 +282,15 @@ export const acBench = {
       id: 'm3', kind: 'im-wound', title: 'М3 — АД с фазным ротором', tacho: true,
       windings: { stator: ['m3.A.1', 'm3.B.1', 'm3.C.1'], rotor: ['m3r.a.1', 'm3r.b.1', 'm3r.c.1'] },
       nominal: { speed: 1000, poles: 6, current: 20 },
+      // параметры для динамического торможения (постоянный ток от ТП в статоре):
+      // r1 — фаза статора, r2 — ротор (приведённый), xm — намагничивание, Ом; mk — тормозной максимум при Iэкв = Iном, Нм
+      im: { r1: 0.5, r2: 0.3, xm: 15, mk: 40 },
     },
     {
       id: 'm4', kind: 'im-cage', title: 'М4 — АД с к.з. ротором',
       windings: { stator: ['m4.A.1', 'm4.B.1', 'm4.C.1'], ends: ['m4.X', 'm4.Y', 'm4.Z'] },
       nominal: { speed: 1000, poles: 6, current: 20 },
+      im: { r1: 0.5, r2: 0.4, xm: 15, mk: 40 },
     },
   ],
 

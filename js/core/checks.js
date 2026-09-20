@@ -89,7 +89,15 @@ export function checkDevices(bench, nl) {
       const hasSrc = nets.map(net => net.sources.length > 0);
       const conn = nets.map(net => net.nodes.length > 1);
       const nSrc = hasSrc.filter(Boolean).length;
-      if (nSrc > 0 && nSrc < ids.length && ids.length === 3) {
+      const srcs = nets.flatMap(net => net.sources);
+      // статор АД от ТП — динамическое торможение: две фазы (третья свободна) или все три
+      const tpOnly = w === 'stator' && nSrc >= 2 && srcs.every(s => s.kind === 'conv' && bench.converters.find(c => c.id === s.dev)?.kind === 'dc');
+      if (tpOnly) {
+        const terms = new Set(srcs.map(s => s.term));
+        const both = [...terms].some(t => t.includes('+')) && [...terms].some(t => t.includes('−'));
+        if (both) msgs.push({ level: 'info', text: `${m.title.split(' — ')[0]}: статор от ТП — динамическое торможение${nSrc === 2 ? ' (третья фаза свободна)' : ''}`, nodes: ids });
+        else msgs.push({ level: 'warn', text: `${m.title.split(' — ')[0]}: к статору подключён только один полюс ТП («${[...terms][0]}») — тока не будет`, nodes: ids });
+      } else if (nSrc > 0 && nSrc < ids.length && ids.length === 3) {
         msgs.push({ level: 'warn', text: `${m.title.split(' — ')[0]}: обмотка «${windingName(w)}» подключена не всеми фазами`, nodes: ids });
       }
       if (nSrc === 1 && ids.length === 2 && !conn[hasSrc.indexOf(false)]) {

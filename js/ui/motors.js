@@ -66,7 +66,7 @@ export class MotorsPanel {
       const st = view.sim.motors[m.id];
       if (!st) continue;
       const name = m.title.split(' — ')[0];
-      const state = { run: 'работает', stop: 'остановлен', stall: 'под напряжением, не вращается', runaway: 'РАЗНОС' }[st.state];
+      const state = { run: 'работает', stop: 'остановлен', stall: 'под напряжением, не вращается', brake: 'динамическое торможение', runaway: 'РАЗНОС' }[st.state];
       notes.push(`<div class="mt-note st-${st.state}"><b>${name}</b>: ${state}${st.note ? ` (${st.note})` : ''}</div>`);
     }
     this.cells.notes.innerHTML = notes.join('');
