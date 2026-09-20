@@ -1,43 +1,67 @@
 // Вспомогательные функции для описания стендов.
 //
-// Клеммник (node) — один зажим с шиной и двумя свободными пружинными
-// зажимами (clamp 0 — верхний, clamp 1 — нижний). Провод подключается к
-// конкретному свободному зажиму; в один зажим входит один провод.
+// Клеммник (node) — пружинный push-in клеммник с тремя зажимами на общей
+// шине: один занят внутренней проводкой стенда, два свободных расположены
+// рядом на одной стороне (side: 'top' — сверху, 'bottom' — снизу).
+// clamp 0 — левый свободный зажим, clamp 1 — правый. В один зажим входит
+// один провод. color — цвет корпуса: gray | blue | orange | green.
 
-/** Ряд клеммников с одинаковым шагом. */
-export function row(prefix, labels, x0, y, dx = 25, extra = {}) {
+export const PITCH = 24; // шаг клеммников на рейке
+export const TERM = { w: 22, h: 52, clampDx: 5.5, clampDy: 16 };
+
+/** Блок клеммников подряд на рейке. colors — строка или массив по клеммникам. */
+export function block(prefix, labels, x0, y, side, colors = 'gray', extra = {}) {
   return labels.map((label, i) => ({
     id: `${prefix}.${label}`,
     label,
-    x: x0 + i * dx,
+    x: x0 + i * PITCH,
     y,
+    side,
+    color: Array.isArray(colors) ? colors[i] : colors,
     ...extra,
   }));
 }
 
-/** Пара клеммников с одной подписью (например «В+ В+»), объединённых шиной. */
-export function pair(prefix, label, x0, y, dx = 25, extra = {}) {
-  const a = { id: `${prefix}.${label}.1`, label, x: x0, y, ...extra };
-  const b = { id: `${prefix}.${label}.2`, label, x: x0 + dx, y, ...extra };
-  return { nodes: [a, b], bus: [a.id, b.id] };
-}
-
-/** Несколько пар подряд. Возвращает nodes и buses. */
-export function pairs(prefix, labels, x0, y, dx = 25, gap = 50, extra = {}) {
+/** Блок пар: два соседних клеммника с одной подписью, объединённые шиной. */
+export function pairBlock(prefix, labels, x0, y, side, colors = 'gray') {
   const nodes = [], buses = [];
-  labels.forEach((l, i) => {
-    const p = pair(prefix, l, x0 + i * gap, y, dx, extra);
-    nodes.push(...p.nodes);
-    buses.push(p.bus);
+  labels.forEach((label, i) => {
+    const c = Array.isArray(colors) ? colors[i] : colors;
+    const a = { id: `${prefix}.${label}.1`, label, x: x0 + 2 * i * PITCH, y, side, color: c };
+    const b = { id: `${prefix}.${label}.2`, label, x: x0 + (2 * i + 1) * PITCH, y, side, color: c };
+    nodes.push(a, b);
+    buses.push([a.id, b.id]);
   });
   return { nodes, buses };
 }
+
+/** x-координаты клеммников блока. */
+export const xs = nodes => nodes.map(n => n.x);
 
 // ---------- SVG-графика наборного поля (строки SVG) ----------
 
 export const art = {
   text(x, y, s, cls = 'lbl', anchor = 'middle') {
     return `<text x="${x}" y="${y}" class="${cls}" text-anchor="${anchor}">${s}</text>`;
+  },
+  /** DIN-рейка с концевыми фиксаторами. */
+  rail(x1, x2, y) {
+    return `<rect x="${x1}" y="${y - 7.5}" width="${x2 - x1}" height="15" class="rail"/>` +
+      `<rect x="${x1}" y="${y - 2}" width="${x2 - x1}" height="4" class="rail-slot"/>` +
+      `<rect x="${x1 - 6}" y="${y - 22}" width="7" height="44" rx="1" class="rail-clip"/>` +
+      `<rect x="${x2 - 1}" y="${y - 22}" width="7" height="44" rx="1" class="rail-clip"/>`;
+  },
+  /** Табличка со схемой (белый лист под/над клеммниками). */
+  plate(x, y, w, h) {
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="plate"/>`;
+  },
+  /** Кружок свободного зажима на табличке. */
+  pin(x, y) {
+    return `<circle cx="${x}" cy="${y}" r="3" class="pin"/>`;
+  },
+  /** Кружки под рядом клеммников. */
+  pins(xs, y) {
+    return xs.map(x => art.pin(x, y)).join('');
   },
   box(x, y, w, h, title, sub = '') {
     return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="dev-box"/>` +
@@ -46,6 +70,10 @@ export const art = {
   },
   line(x1, y1, x2, y2, cls = 'art-line') {
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}"/>`;
+  },
+  /** Вертикальные отводы от кружков к устройству. */
+  leads(xs, y1, y2, cls = 'art-line') {
+    return xs.map(x => art.line(x, y1, x, y2, cls)).join('');
   },
   poly(points, cls = 'art-line') {
     return `<polyline points="${points.map(p => p.join(',')).join(' ')}" class="${cls}"/>`;
@@ -64,16 +92,23 @@ export const art = {
       `<rect x="${x - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" class="art-res"/>` +
       (label ? art.text(x + 10, cy + 4, label, 'lbl-small', 'start') : '');
   },
-  /** Катушка контактора. */
+  /** Катушка контактора (подпись над катушкой). */
   coil(x, y, label) {
     return `<rect x="${x - 9}" y="${y - 14}" width="18" height="28" class="art-coil"/>` +
-      art.text(x + 14, y + 4, label, 'lbl-small', 'start');
+      art.text(x, y - 18, label, 'lbl-small');
   },
   /** НО-контакт (горизонтально) с подписью. */
   contactH(x, y, label, timed = false) {
     return art.line(x - 14, y, x - 4, y) + art.line(x - 4, y, x + 10, y - 9) + art.line(x + 8, y, x + 14, y) +
       (timed ? `<path d="M${x} ${y + 4} a5 5 0 0 0 10 0" class="art-line"/>` : '') +
       art.text(x, y - 13, label, 'lbl-small');
+  },
+  /** Силовой контакт между двумя клеммниками (x1, x2) с отводами к кружкам на y. */
+  contactPair(x1, x2, y, up = true) {
+    const d = up ? -1 : 1;
+    const y1 = y + d * 30, y2 = y + d * 44;
+    return art.line(x1, y, x1, y1) + art.line(x2, y, x2, y1) +
+      art.line(x1, y1, x1 + 6, y2) + art.line(x1 + 8, y2 + d * 2, x2, y2 + d * 2) + art.line(x2, y2 + d * 2, x2, y1);
   },
   /** Кнопка (нормально разомкнутая — Пуск, замкнутая — Стоп). */
   button(x, y, label, nc = false) {
@@ -92,11 +127,31 @@ export const art = {
     return `<circle cx="${x}" cy="${y}" r="8" class="art-meter"/>` +
       art.text(x, y + 3.5, letter, 'lbl-tiny') + (id ? art.text(x + 10, y - 6, id, 'lbl-tiny', 'start') : '');
   },
-  /** Клеммники ваттметра/датчиков — проходные шины между рядами. */
-  passLines(xs, y1, y2) {
-    return xs.map(x => art.line(x, y1, x, y2, 'art-line art-dashed')).join('');
+  /** Вольтметр между двумя вертикальными линиями x1, x2 на высоте y. */
+  meterAcross(x1, x2, y, id) {
+    const cx = (x1 + x2) / 2;
+    return art.line(x1, y, cx - 8, y) + art.line(cx + 8, y, x2, y) + art.meter(cx, y, 'V', id);
   },
   dashedBox(x, y, w, h) {
     return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="art-dashed-box"/>`;
+  },
+  /** Датчики напряжения/тока внутри пунктирного блока на трёх линиях xs. */
+  sensors(xs, y1, y2) {
+    const [a, b, c] = xs;
+    let s = art.dashedBox(a - 22, y1, c - a + 44, y2 - y1) + art.text((a + c) / 2, y1 - 6, 'ДН / ДТ', 'lbl-tiny');
+    const my = (y1 + y2) / 2;
+    for (const x of xs) s += `<rect x="${x - 7}" y="${my + 8}" width="14" height="10" class="art-res"/>`;
+    s += `<rect x="${(a + b) / 2 - 7}" y="${my - 20}" width="14" height="10" class="art-res"/>` +
+      `<rect x="${(b + c) / 2 - 7}" y="${my - 6}" width="14" height="10" class="art-res"/>`;
+    return s;
+  },
+  /** Концевой выключатель двери (декор). */
+  limitSwitch(x, y) {
+    return `<rect x="${x}" y="${y}" width="46" height="70" rx="3" class="lsw-body"/>` +
+      `<rect x="${x + 6}" y="${y + 8}" width="34" height="28" rx="2" class="lsw-label"/>` +
+      `<text x="${x + 23}" y="${y + 20}" class="lbl-tiny" text-anchor="middle">ABB</text>` +
+      `<text x="${x + 23}" y="${y + 30}" class="lbl-tiny" text-anchor="middle">LS</text>` +
+      `<rect x="${x + 16}" y="${y + 70}" width="14" height="12" class="lsw-plunger"/>` +
+      `<circle cx="${x + 23}" cy="${y + 88}" r="6" class="lsw-roller"/>`;
   },
 };

@@ -1,6 +1,7 @@
 // Наборное поле: клеммники, графика схемы, провода и их монтаж мышью.
+import { TERM } from '../benches/common.js';
 const NS = 'http://www.w3.org/2000/svg';
-const BODY_W = 18, BODY_H = 44, CLAMP_DY = 13, CLAMP_R = 5;
+const CLAMP_R = 4;
 
 function svg(tag, attrs = {}, parent) {
   const el = document.createElementNS(NS, tag);
@@ -31,6 +32,11 @@ export class Field {
     const { w, h } = this.bench.field;
     const root = svg('svg', { viewBox: `0 0 ${w} ${h}`, class: 'field-svg' });
     this.svg = root;
+    const defs = svg('defs', {}, root);
+    defs.innerHTML = `
+      <linearGradient id="fld-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dcd9"/><stop offset="1" stop-color="#c6cac8"/></linearGradient>
+      <linearGradient id="fld-rail" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6e8ea"/><stop offset=".5" stop-color="#b3b8be"/><stop offset="1" stop-color="#8e949b"/></linearGradient>
+      <filter id="fld-shadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-opacity=".35"/></filter>`;
     svg('rect', { x: 0, y: 0, width: w, height: h, class: 'field-bg' }, root);
     const art = svg('g', { class: 'art' }, root);
     art.innerHTML = this.bench.field.art();
@@ -40,14 +46,26 @@ export class Field {
     this.clampEls = new Map(); // `${id}:${clamp}` -> circle
 
     for (const n of this.bench.field.nodes) {
-      const g = svg('g', { class: 'node', 'data-id': n.id, transform: `translate(${n.x},${n.y})` }, this.gNodes);
-      svg('rect', { x: -BODY_W / 2, y: -BODY_H / 2, width: BODY_W, height: BODY_H, rx: 2, class: 'node-body' }, g);
-      svg('rect', { x: -BODY_W / 2 + 3, y: -BODY_H / 2 + 3, width: BODY_W - 6, height: BODY_H - 6, rx: 1, class: 'node-inner' }, g);
-      const t = svg('text', { x: 0, y: 3.5, class: 'node-label', 'text-anchor': 'middle' }, g);
+      const g = svg('g', { class: `node c-${n.color || 'gray'}`, 'data-id': n.id, transform: `translate(${n.x},${n.y})` }, this.gNodes);
+      const up = n.side === 'top';           // свободные зажимы сверху
+      const dir = up ? -1 : 1;               // направление «наружу» от свободных зажимов
+      const fy = dir * TERM.clampDy;         // y свободных зажимов
+      const sy = -fy;                        // y зажима внутренней проводки
+      // внутренняя проводка: провод уходит за пределы корпуса
+      svg('path', { d: `M0 ${sy} L0 ${sy - dir * 30} q0 ${-dir * 6} 6 ${-dir * 8}`, class: 'node-inwire' }, g);
+      svg('rect', { x: -TERM.w / 2, y: -TERM.h / 2, width: TERM.w, height: TERM.h, rx: 2, class: 'node-body' }, g);
+      svg('circle', { cx: 0, cy: sy, r: 3.2, class: 'node-hole' }, g);
+      svg('rect', { x: -2.5, y: sy + (up ? 5 : -10), width: 5, height: 5, class: 'node-btn' }, g);
+      // маркировочная полоска с подписью
+      svg('rect', { x: -8.5, y: -6, width: 17, height: 12, rx: 1, class: 'node-inner' }, g);
+      const t = svg('text', { x: 0, y: 3, class: 'node-label', 'text-anchor': 'middle' }, g);
       t.textContent = n.label;
+      // два свободных push-in зажима с кнопками-фиксаторами
       for (const c of [0, 1]) {
-        const cy = c === 0 ? -CLAMP_DY : CLAMP_DY;
-        const circ = svg('circle', { cx: 0, cy, r: CLAMP_R, class: 'clamp', 'data-node': n.id, 'data-clamp': c }, g);
+        const cx = c === 0 ? -TERM.clampDx : TERM.clampDx;
+        svg('rect', { x: cx - 2.5, y: fy + (up ? 5 : -10), width: 5, height: 5, class: 'node-btn' }, g);
+        const circ = svg('circle', { cx, cy: fy, r: CLAMP_R, class: 'clamp' }, g);
+        svg('circle', { cx, cy: fy, r: 7.5, class: 'clamp-hit', 'data-node': n.id, 'data-clamp': c }, g);
         this.clampEls.set(`${n.id}:${c}`, circ);
       }
       g.addEventListener('mouseenter', () => this.cb.hint(this.nodeHint(n)));
@@ -79,11 +97,7 @@ export class Field {
 
   nodeHint(n) {
     const group = n.id.split('.')[0];
-    const names = {
-      in1: 'Ввод 1 ~380 В', in2: 'Ввод 2 ~380 В', in3: 'Ввод 3 =240 В', ctrl: 'Цепь управления',
-      km1: 'Контакты KM1', km2: 'Контакты KM2', km3: 'Контакты KM3', tp: 'ТП', fc: 'ПЧ', tpn: 'ТПН', pw: 'Ваттметр PW', sens: 'Датчики',
-      m1: 'М1 ДПТ', m2: 'М2 СДПМ', m3: 'М3 статор', m3r: 'М3 ротор', m4: 'М4', r1: 'Резистор',
-    };
+    const names = this.bench.field.names || {};
     return `${names[group] || group}: клемма «${n.label}»`;
   }
 
@@ -93,19 +107,23 @@ export class Field {
     return pt.matrixTransform(this.svg.getScreenCTM().inverse());
   }
 
+  /** Положение свободного зажима и направление выхода провода (−1 вверх, +1 вниз). */
   clampPos(ref) {
     const n = this.nodeById.get(ref.node);
-    return { x: n.x, y: n.y + (ref.clamp === 0 ? -CLAMP_DY : CLAMP_DY) };
+    const dir = n.side === 'top' ? -1 : 1;
+    return { x: n.x + (ref.clamp === 0 ? -TERM.clampDx : TERM.clampDx), y: n.y + dir * TERM.clampDy, dir };
   }
 
   clampBusy(ref) {
     return this.state.wires.some(w => (w.a.node === ref.node && w.a.clamp === ref.clamp) || (w.b.node === ref.node && w.b.clamp === ref.clamp));
   }
 
+  /** Провод выходит из зажима в его сторону (dir), затем провисает к другому зажиму. */
   wirePath(p1, p2) {
     const d = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    const sag = Math.min(140, 28 + d * 0.18);
-    return `M${p1.x} ${p1.y} C${p1.x} ${p1.y + sag}, ${p2.x} ${p2.y + sag}, ${p2.x} ${p2.y}`;
+    const lead = Math.min(150, 30 + d * 0.3);
+    const d1 = p1.dir ?? 1, d2 = p2.dir ?? 0;
+    return `M${p1.x} ${p1.y} C${p1.x} ${p1.y + d1 * lead}, ${p2.x} ${p2.y + d2 * lead}, ${p2.x} ${p2.y}`;
   }
 
   refreshWires() {
@@ -119,21 +137,21 @@ export class Field {
       svg('path', { d, class: 'wire-shadow' }, g);
       svg('path', { d, class: 'wire-core', stroke: w.color }, g);
       svg('path', { d, class: 'wire-gloss' }, g);
-      for (const p of [p1, p2]) svg('circle', { cx: p.x, cy: p.y, r: 4.5, class: 'wire-end', fill: w.color }, g);
+      for (const p of [p1, p2]) svg('circle', { cx: p.x, cy: p.y, r: 4, class: 'wire-end', fill: w.color }, g);
       this.clampEls.get(`${w.a.node}:${w.a.clamp}`)?.classList.add('busy');
       this.clampEls.get(`${w.b.node}:${w.b.clamp}`)?.classList.add('busy');
     }
   }
 
   onClick(e) {
-    const clamp = e.target.closest('.clamp');
+    const clamp = e.target.closest('.clamp-hit');
     if (clamp) {
       if (!this.cb.canEdit()) { this.cb.hint('Откройте дверь монтажного отсека, чтобы менять схему', true); return; }
       const ref = { node: clamp.dataset.node, clamp: +clamp.dataset.clamp };
       if (this.clampBusy(ref)) { this.cb.hint('Зажим занят — в один пружинный зажим входит один провод', true); return; }
       if (!this.pending) {
         this.pending = ref;
-        clamp.classList.add('pending');
+        this.clampEls.get(`${ref.node}:${ref.clamp}`)?.classList.add('pending');
         this.cb.hint('Выберите второй зажим (Esc — отмена)');
       } else {
         if (this.pending.node === ref.node && this.pending.clamp === ref.clamp) { this.cancelPending(); return; }

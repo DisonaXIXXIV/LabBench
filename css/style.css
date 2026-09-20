@@ -12,7 +12,6 @@
   --err: #d0201f;
   --lamp-green: #34d058;
   --lamp-red: #ff4d4d;
-  --field-bg: #f4f5f2;
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -252,43 +251,60 @@ button { font: inherit; cursor: pointer; }
 .field-svg { width: 100%; display: block; }
 .zoom-ctl { display: inline-flex; gap: 2px; margin-left: 8px; }
 .zoom-ctl button { font-size: 10px; background: #fff; border: 1px solid var(--cab-edge); border-radius: 3px; padding: 1px 6px; min-width: 22px; }
-.field-bg { fill: var(--field-bg); }
+.field-bg { fill: url(#fld-bg); }
 .art .lbl, .art .lbl-big, .art .lbl-small, .art .lbl-tiny, .art .dev-title, .art .dev-sub { font-family: "Times New Roman", serif; fill: #222; }
-.art .lbl-big { font-size: 17px; }
-.art .lbl { font-size: 13px; }
+.art .lbl-big { font-size: 16px; }
+.art .lbl { font-size: 12px; font-style: italic; }
 .art .lbl-small { font-size: 10px; font-style: italic; }
-.art .lbl-tiny { font-size: 8px; }
-.art .dev-title { font-size: 20px; }
-.art .dev-sub { font-size: 10px; fill: #666; }
-.art .dev-box { fill: #fff; stroke: #222; stroke-width: 1.2; }
-.art .art-line { fill: none; stroke: #222; stroke-width: 1; }
+.art .lbl-tiny { font-size: 8px; font-style: italic; }
+.art .dev-title { font-size: 19px; }
+.art .dev-sub { font-size: 9px; fill: #666; font-style: normal; }
+.art .rail { fill: url(#fld-rail); stroke: #6f757c; stroke-width: .6; }
+.art .rail-slot { fill: #7c8289; opacity: .55; }
+.art .rail-clip { fill: #9ea3a8; stroke: #5f656b; stroke-width: .6; }
+.art .plate { fill: #fbfbf8; stroke: #b9bcb5; stroke-width: .6; filter: url(#fld-shadow); }
+.art .pin { fill: #fff; stroke: #222; stroke-width: .9; }
+.art .dev-box { fill: #fff; stroke: #222; stroke-width: 1.1; }
+.art .art-line { fill: none; stroke: #222; stroke-width: .9; }
 .art .art-dashed { stroke-dasharray: 3 3; }
 .art .art-dashed-box { fill: none; stroke: #666; stroke-dasharray: 4 3; }
-.art .art-res { fill: #fff; stroke: #222; stroke-width: 1; }
+.art .art-res, .art .art-blank { fill: #fff; stroke: #222; stroke-width: .9; }
 .art .art-coil { fill: #fff; stroke: #222; }
-.art .art-circle { fill: #fff; stroke: #222; stroke-width: 1.4; }
+.art .art-circle { fill: #fff; stroke: #222; stroke-width: 1.3; }
 .art .art-meter { fill: #fff; stroke: #222; }
 .art .art-shaft { stroke: #222; stroke-width: 3; }
+.art .lsw-body { fill: #d9d9cf; stroke: #6a6a60; }
+.art .lsw-label { fill: #fff; stroke: #999; stroke-width: .5; }
+.art .lsw-plunger { fill: #333; }
+.art .lsw-roller { fill: #777; stroke: #222; }
 
-.node-body { fill: #d7dad2; stroke: #6f746a; stroke-width: .8; }
-.node-inner { fill: #eef0ea; stroke: #a9ada4; stroke-width: .5; }
-.node-label { font-size: 9px; font-family: Arial; font-weight: 700; fill: #222; pointer-events: none; }
-.clamp { fill: #f7f7f2; stroke: #444; stroke-width: 1.2; cursor: pointer; transition: fill .1s; }
-.editable .clamp:hover { fill: #ffe680; stroke: #b08000; }
-.clamp.busy { fill: #888; }
+/* клеммники push-in: корпус по цвету, две кнопки-фиксатора, маркировка */
+.node-body { stroke: #4a4d48; stroke-width: .7; }
+.node.c-gray .node-body { fill: #cfd2cc; }
+.node.c-blue .node-body { fill: #2f74c9; }
+.node.c-orange .node-body { fill: #f36f21; }
+.node.c-green .node-body { fill: #3d9b52; }
+.node-inner { fill: #fff; stroke: #8a8d87; stroke-width: .5; }
+.node-label { font-size: 7.5px; font-family: Arial; font-weight: 700; fill: #222; pointer-events: none; }
+.node-hole { fill: #2b2b2b; stroke: #111; stroke-width: .6; }
+.node-btn { fill: #ff7a1a; stroke: #b04a00; stroke-width: .4; }
+.node-inwire { fill: none; stroke: #4a4a4a; stroke-width: 2.4; stroke-linecap: round; }
+.node.c-blue .node-inwire, .node.c-orange .node-inwire { stroke: #3c3c3c; }
+.clamp { fill: #2b2b2b; stroke: #111; stroke-width: .8; pointer-events: none; transition: fill .1s; }
+.clamp-hit { fill: transparent; stroke: none; cursor: pointer; }
+.editable .clamp-hit:hover { fill: rgba(255, 220, 0, .55); }
 .clamp.pending { fill: #ffd000; stroke: #a06000; }
-.node.hl .node-body { fill: #ffd6d6; stroke: var(--err); stroke-width: 2; }
-.node.live-ac .node-inner { fill: #ffd9d9; }
-.node.live-n .node-inner { fill: #dbe6ff; }
-.node.live-dc .node-inner { fill: #ffe7c2; }
-.node.live-conv .node-inner { fill: #dcf5dc; }
-.node.live-ac .node-body, .node.live-dc .node-body { stroke: #c33; }
+.node.hl .node-body { stroke: var(--err); stroke-width: 2.5; filter: drop-shadow(0 0 3px var(--err)); }
+.node.live-ac .node-inner { fill: #ffd0d0; }
+.node.live-n .node-inner { fill: #d0dcff; }
+.node.live-dc .node-inner { fill: #ffe2b8; }
+.node.live-conv .node-inner { fill: #cdf2cd; }
 
 .wire-hit { fill: none; stroke: transparent; stroke-width: 12; cursor: pointer; }
 .wire-shadow { fill: none; stroke: rgba(0,0,0,.35); stroke-width: 6; transform: translate(1px, 2px); pointer-events: none; }
 .wire-core { fill: none; stroke-width: 4.5; stroke-linecap: round; pointer-events: none; }
 .wire-gloss { fill: none; stroke: rgba(255,255,255,.35); stroke-width: 1.2; transform: translate(-0.8px, -1px); pointer-events: none; }
-.wire-end { stroke: #222; stroke-width: .8; pointer-events: none; }
+.wire-end { stroke: #d9d9d9; stroke-width: 1; pointer-events: none; }
 .wire.selected .wire-core { filter: drop-shadow(0 0 3px #ffd000); }
 .wire.selected .wire-shadow { stroke: #ffd000; stroke-width: 8; }
 .wire.energized .wire-core { filter: drop-shadow(0 0 2px rgba(255,80,0,.6)); }

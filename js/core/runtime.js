@@ -177,10 +177,14 @@ export class BenchRuntime {
     const live = this.chainEnergized(nl);
     rt.chainLive = live;
     const km1 = bench.contactors[0];
+    // разрыв в цепи катушки KM1 (клеммы X2–X3 на стенде АД) должен быть замкнут
+    const gap = bench.ctrlChain.gap;
+    const gapClosed = !gap || nl.same(gap[0], gap[1]);
     if (!live || s.ctrl.stop) {
       for (const k of bench.contactors) { rt.contactors[k.id] = false; rt.timers[k.id] = 0; }
     } else {
-      if (s.ctrl.start) rt.contactors[km1.id] = true;
+      if (!gapClosed) rt.contactors[km1.id] = false;
+      else if (s.ctrl.start) rt.contactors[km1.id] = true;
       for (const k of bench.contactors.slice(1)) {
         const prev = rt.contactors[k.after];
         if (prev) {

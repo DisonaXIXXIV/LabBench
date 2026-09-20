@@ -67,6 +67,10 @@ export function checkShorts(bench, nl) {
 /** Проверки подключения устройств (не КЗ, а предупреждения). */
 export function checkDevices(bench, nl) {
   const msgs = [];
+  const gap = bench.ctrlChain.gap;
+  if (gap && !nl.same(gap[0], gap[1])) {
+    msgs.push({ level: 'info', text: 'Разрыв X2–X3 в цепи катушки KM1 не замкнут — контакторы KM1–KM3 не включатся', nodes: gap });
+  }
   for (const c of bench.converters) {
     const nets = Object.values(c.in).map(n => nl.netOf(n));
     const phases = nets.map(net => net.sources.filter(s => s.kind === 'ac' && s.phase !== 'N').map(s => s.phase));

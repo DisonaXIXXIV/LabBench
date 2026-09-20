@@ -1,167 +1,224 @@
 // Стенд для исследования электроприводов с асинхронными двигателями
-// (шкафы Б1–Б6, монтажный отсек в шкафу Б5, рис. В.13 методички).
-import { row, pairs, art } from './common.js';
+// (шкафы Б1–Б6, монтажный отсек в шкафу Б5, рис. В.11б и В.13 методички).
+//
+// Компоновка отсека повторяет реальную: рейки с блоками клеммников и
+// таблички со схемами, кружки которых стоят под/над клеммниками.
+import { block, pairBlock, xs, art } from './common.js';
 
 const nodes = [];
 const buses = [];
 const jumpers = [];
 
-// ---- Вводы питания ----
-nodes.push(...row('in1', ['A', 'B', 'C', 'N'], 85, 40));
-nodes.push(...row('in2', ['A', 'B', 'C', 'N'], 215, 40));
+const PH3 = ['blue', 'gray', 'orange'];
+const IN = ['gray', 'gray', 'gray', 'blue'];
 
-// ---- Цепь управления ----
-nodes.push({ id: 'ctrl.X1', label: 'X1', x: 100, y: 190 });
-nodes.push({ id: 'ctrl.X2', label: 'X2', x: 300, y: 190 });
+// ---- Рейка 1 (верх): вводы и входы устройств; свободные зажимы снизу ----
+const R1 = 50;
+const in1 = block('in1', ['A', 'B', 'C', 'N'], 60, R1, 'bottom', IN);
+const in2 = block('in2', ['A', 'B', 'C', 'N'], 180, R1, 'bottom', IN);
+const tpnIn = block('tpn.in', ['A', 'B', 'C'], 700, R1, 'bottom', PH3);
+const tpnByp = block('tpn.byp', ['B1', 'B2', 'B3'], 796, R1, 'bottom', PH3);
+const tpIn = block('tp.in', ['A', 'B', 'C'], 880, R1, 'bottom', PH3);
+const pwIn = block('pw.in', ['A', 'B', 'C'], 990, R1, 'bottom', PH3);
+const snIn = block('sens.in', ['A', 'B', 'C'], 1100, R1, 'bottom', PH3);
+const fcIn = block('fc.in', ['A', 'B', 'C'], 1210, R1, 'bottom', PH3);
+nodes.push(...in1, ...in2, ...tpnIn, ...tpnByp, ...tpIn, ...pwIn, ...snIn, ...fcIn);
 
-// ---- Контакторы: по три силовых контакта, верх/низ ----
-const kmX = { km1: 365, km2: 445, km3: 525 };
-for (const [km, x0] of Object.entries(kmX)) {
-  nodes.push(...row(km, ['1', '3', '5'], x0, 190, 25));
-  nodes.push(...row(km, ['2', '4', '6'], x0, 650, 25));
+// ---- Рейка 2 (середина): цепь управления, верх контактов KM1–KM3, выходы устройств; зажимы сверху ----
+const R2 = 335;
+const ctrl = [
+  { id: 'ctrl.X1', label: 'X1', x: 60, y: R2, side: 'top', color: 'gray' },
+  { id: 'ctrl.X2', label: 'X2', x: 140, y: R2, side: 'top', color: 'gray' },
+  { id: 'ctrl.X3', label: 'X3', x: 164, y: R2, side: 'top', color: 'gray' },
+  { id: 'ctrl.X4', label: 'X4', x: 210, y: R2, side: 'top', color: 'gray' },
+];
+const kmX = { km1: 350, km2: 430, km3: 510 };
+const kmTop = {}, kmBot = {};
+for (const [id, x0] of Object.entries(kmX)) {
+  kmTop[id] = block(id, ['1', '3', '5'], x0, R2, 'top', PH3);
+  kmBot[id] = block(id, ['2', '4', '6'], x0, 650, 'top', PH3);
 }
+const tpnOut = block('tpn.out', ['U', 'V', 'W'], 700, R2, 'top', PH3);
+const tpnK4 = block('tpn.k4', ['1', '2', '3'], 796, R2, 'top', 'gray');
+const tpOut = block('tp.out', ['+', '−'], 886, R2, 'top', ['orange', 'blue']);
+const pwOut = block('pw.out', ['U', 'V', 'W'], 990, R2, 'top', PH3);
+const snOut = block('sens.out', ['U', 'V', 'W'], 1100, R2, 'top', PH3);
+const fcOut = block('fc.out', ['U', 'V', 'W'], 1210, R2, 'top', PH3);
+const fcBr = block('fc.br', ['Br+', 'Br−'], 1294, R2, 'top', ['orange', 'blue']);
+nodes.push(...ctrl, ...Object.values(kmTop).flat(), ...tpnOut, ...tpnK4, ...tpOut, ...pwOut, ...snOut, ...fcOut, ...fcBr);
+jumpers.push(['pw.in.A', 'pw.out.U'], ['pw.in.B', 'pw.out.V'], ['pw.in.C', 'pw.out.W']);
+jumpers.push(['sens.in.A', 'sens.out.U'], ['sens.in.B', 'sens.out.V'], ['sens.in.C', 'sens.out.W']);
 
-// ---- Резисторы: две группы по три ----
+// ---- Рейка 3 (справа): машины и R1; зажимы снизу ----
+const R3 = 430;
+const m3r = pairBlock('m3r', ['a', 'b', 'c'], 700, R3, 'bottom', PH3);
+const m3s = pairBlock('m3', ['A', 'B', 'C'], 860, R3, 'bottom', PH3);
+const m4s = pairBlock('m4', ['A', 'B', 'C'], 1020, R3, 'bottom', PH3);
+const m4e = block('m4', ['Y', 'X', 'Z'], 1180, R3, 'bottom', 'gray');
+const r1 = pairBlock('r1', ['1', '2'], 1270, R3, 'bottom', ['orange', 'blue']);
+nodes.push(...m3r.nodes, ...m3s.nodes, ...m4s.nodes, ...m4e, ...r1.nodes);
+buses.push(...m3r.buses, ...m3s.buses, ...m4s.buses, ...r1.buses);
+
+// ---- Рейка 4 (низ слева): резисторы и низ контактов KM1–KM3; зажимы сверху ----
+const R4 = 650;
 const resistors = [];
-for (const [g, ohm, x0] of [['ra', 4.2, 75], ['rb', 1.2, 225]]) {
+const resGroups = [['ra', 4.2, 60], ['rb', 1.2, 204]];
+for (const [g, ohm, x0] of resGroups) {
   for (let i = 0; i < 3; i++) {
     const id = `${g}${i + 1}`;
-    nodes.push({ id: `${id}.1`, label: '1', x: x0 + i * 50, y: 650 });
-    nodes.push({ id: `${id}.2`, label: '2', x: x0 + i * 50 + 25, y: 650 });
-    resistors.push({ id, ohm, a: `${id}.1`, b: `${id}.2`, x: x0 + i * 50 });
+    const b = block(id, ['1', '2'], x0 + i * 48, R4, 'top', ['orange', 'blue']);
+    nodes.push(...b);
+    resistors.push({ id, ohm, a: `${id}.1`, b: `${id}.2`, x: b[0].x });
   }
 }
-
-// ---- Преобразователи и проходные устройства ----
-nodes.push(...row('tpn.in', ['A', 'B', 'C'], 690, 40));
-nodes.push(...row('tpn.byp', ['B1', 'B2', 'B3'], 800, 40));
-nodes.push(...row('tpn.out', ['U', 'V', 'W'], 690, 215));
-nodes.push(...row('tpn.k4', ['1', '2', '3'], 800, 215));
-nodes.push(...row('tp.in', ['A', 'B', 'C'], 915, 40));
-nodes.push(...row('tp.out', ['+', '−'], 927, 215, 26));
-nodes.push(...row('pw.in', ['A', 'B', 'C'], 1035, 40));
-nodes.push(...row('pw.out', ['U', 'V', 'W'], 1035, 215));
-jumpers.push(['pw.in.A', 'pw.out.U'], ['pw.in.B', 'pw.out.V'], ['pw.in.C', 'pw.out.W']);
-nodes.push(...row('sens.in', ['A', 'B', 'C'], 1155, 40));
-nodes.push(...row('sens.out', ['U', 'V', 'W'], 1155, 215));
-jumpers.push(['sens.in.A', 'sens.out.U'], ['sens.in.B', 'sens.out.V'], ['sens.in.C', 'sens.out.W']);
-nodes.push(...row('fc.in', ['A', 'B', 'C'], 1275, 40));
-nodes.push(...row('fc.out', ['U', 'V', 'W'], 1275, 215));
-nodes.push(...row('fc.br', ['Br+', 'Br−'], 1365, 215));
-
-// ---- Машины ----
-const m3r = pairs('m3r', ['a', 'b', 'c'], 705, 450, 25, 50);
-const m3s = pairs('m3', ['A', 'B', 'C'], 880, 450, 25, 50);
-const m4s = pairs('m4', ['A', 'B', 'C'], 1085, 450, 25, 50);
-nodes.push(...m3r.nodes, ...m3s.nodes, ...m4s.nodes);
-buses.push(...m3r.buses, ...m3s.buses, ...m4s.buses);
-nodes.push(...row('m4', ['Y', 'X', 'Z'], 1265, 450));
-const r1 = pairs('r1', ['1', '2'], 1355, 450, 25, 50);
-nodes.push(...r1.nodes); buses.push(...r1.buses);
-resistors.push({ id: 'r1', ohm: 10, a: 'r1.1.1', b: 'r1.2.1', x: 1355 });
+nodes.push(...Object.values(kmBot).flat());
+resistors.push({ id: 'r1', ohm: 10, a: 'r1.1.1', b: 'r1.2.1', x: 1270 });
 
 function fieldArt() {
   const a = art;
   let s = '';
-  s += a.text(122, 100, '~380 В', 'lbl-big') + a.text(122, 120, 'Ввод 1', 'lbl-big');
-  s += a.text(252, 100, '~380 В', 'lbl-big') + a.text(252, 120, 'Ввод 2', 'lbl-big');
 
-  // цепь управления
-  s += a.line(100, 210, 100, 290) + a.line(100, 290, 115, 290);
-  s += a.button(130, 290, 'Стоп', true) + a.line(145, 290, 165, 290);
-  s += a.button(180, 290, 'Пуск') + a.line(195, 290, 215, 290);
-  s += a.line(165, 290, 165, 320) + a.contactH(180, 320, 'KM1') + a.line(195, 320, 215, 320) + a.line(215, 320, 215, 290);
-  s += a.line(215, 290, 235, 290) + a.coil(250, 290, 'KM1');
-  s += a.line(215, 320, 215, 355) + a.contactH(180, 355, 'KM1', true) + a.line(165, 355, 165, 320) + a.line(195, 355, 235, 355) + a.coil(250, 355, 'KM2');
-  s += a.line(215, 355, 215, 390) + a.contactH(180, 390, 'KM2', true) + a.line(165, 390, 165, 355) + a.line(195, 390, 235, 390) + a.coil(250, 390, 'KM3');
-  s += a.line(265, 290, 300, 290) + a.line(265, 355, 300, 355) + a.line(265, 390, 300, 390) + a.line(300, 290, 300, 390) + a.line(300, 290, 300, 210);
-  s += a.text(200, 430, 'Цепь управления', 'lbl-small');
-  s += a.text(200, 445, '(Пуск/Стоп, KM1–KM3 с выдержкой времени)', 'lbl-small');
+  // рейки
+  s += a.rail(30, 280, R1) + a.rail(660, 1300, R1);
+  s += a.rail(40, 80, R2) + a.rail(118, 240, R2) + a.rail(330, 580, R2) + a.rail(660, 1350, R2);
+  s += a.rail(680, 1370, R3);
+  s += a.rail(40, 580, R4);
 
-  // контакторы: три полюса каждый, контакт на разной высоте
-  const kmY = { km1: 300, km2: 400, km3: 500 };
-  for (const [km, x0] of Object.entries(kmX)) {
-    const y = kmY[km];
-    s += a.text(x0 + 25, y - 25, km.toUpperCase(), 'lbl-big');
-    s += a.dashedBox(x0 - 15, y - 15, 80, 40);
-    for (let i = 0; i < 3; i++) {
-      const x = x0 + i * 25;
-      s += a.line(x, 210, x, y - 5) + a.line(x, y - 5, x + 10, y + 12) + a.line(x, y + 15, x, 630);
-    }
+  // ---- табличка 1 (слева): вводы ----
+  const P1 = 92;
+  s += a.plate(40, P1, 240, 78);
+  for (const [b, x, t] of [[in1, 96, 'Ввод 1'], [in2, 216, 'Ввод 2']]) {
+    s += a.pins(xs(b), P1 + 8) + b.map(n => a.text(n.x, P1 + 22, n.label, 'lbl-tiny')).join('');
+    s += a.text(x, P1 + 42, '~380 В', 'lbl-big') + a.text(x, P1 + 62, t, 'lbl-big');
   }
 
-  // резисторы
-  for (const [g, label, x0] of [['ra', '4,2 Ом', 75], ['rb', '1,2 Ом', 225]]) {
-    s += a.text(x0 + 62, 540, label, 'lbl-small');
-    for (let i = 0; i < 3; i++) {
-      const x = x0 + i * 50;
-      s += a.line(x, 630, x, 615) + a.line(x, 615, x + 12, 615) + a.line(x + 25, 630, x + 25, 615) + a.line(x + 25, 615, x + 12, 615);
-      s += a.resistorV(x + 12, 555, 615, '');
-      s += a.line(x + 12, 555, x + 12, 548);
-    }
-  }
-
-  // ТПН
-  s += a.box(665, 90, 210, 90, 'ТПН', 'PST30');
-  for (const x of [690, 715, 740]) s += a.line(x, 60, x, 90) + a.line(x, 180, x, 195);
-  for (const x of [800, 825, 850]) s += a.line(x, 60, x, 90) + a.line(x, 180, x, 195);
-  s += a.text(825, 76, 'байпас K4', 'lbl-tiny');
+  // ---- табличка 1 (справа): ТПН, ТП, ваттметр, датчики, ПЧ ----
+  const P1B = 300;
+  s += a.plate(660, P1, 700, P1B - P1);
+  const inPins = b => a.pins(xs(b), P1 + 8) + b.map(n => a.text(n.x, P1 + 22, n.label, 'lbl-tiny')).join('');
+  const outPins = b => b.map(n => a.text(n.x, P1B - 14, n.label, 'lbl-tiny')).join('') + a.pins(xs(b), P1B - 8);
+  const dev = (inB, outB, x, w, title, sub) =>
+    inPins(inB) + a.leads(xs(inB), P1 + 24, P1 + 46) + a.box(x, P1 + 46, w, 80, title, sub) +
+    a.leads(xs(outB), P1 + 126, P1B - 24) + outPins(outB);
+  // ТПН с байпасом K4
+  s += dev(tpnIn, tpnOut, 680, 88, 'ТПН', 'PST30');
+  s += inPins(tpnByp) + a.leads(xs(tpnByp), P1 + 24, P1B - 24) + outPins(tpnK4);
+  s += a.dashedBox(778, P1 + 46, 80, 80) + a.text(818, P1 + 40, 'байпас K4', 'lbl-tiny');
+  for (const x of xs(tpnByp)) s += `<rect x="${x - 6}" y="${P1 + 74}" width="12" height="24" class="art-blank"/>` + a.line(x, P1 + 74, x + 9, P1 + 92);
+  s += a.line(768, P1 + 86, 778, P1 + 86, 'art-line art-dashed');
   // ТП
-  s += a.box(895, 90, 90, 90, 'ТП', 'DCS800');
-  for (const x of [915, 940, 965]) s += a.line(x, 60, x, 90);
-  s += a.line(927, 180, 927, 195) + a.line(953, 180, 953, 195);
+  s += dev(tpIn, tpOut, 860, 90, 'ТП', 'DCS800');
   // PW
-  s += a.box(1015, 90, 90, 90, 'Ваттметр', 'PW');
-  for (const x of [1035, 1060, 1085]) s += a.line(x, 60, x, 90) + a.line(x, 180, x, 195);
+  s += dev(pwIn, pwOut, 970, 90, 'Ваттметр', 'PW');
   // датчики
-  s += a.dashedBox(1132, 90, 96, 90) + a.text(1180, 82, 'ДН / ДТ', 'lbl-small');
-  for (const x of [1155, 1180, 1205]) s += a.line(x, 60, x, 195);
-  s += `<rect x="1148" y="130" width="14" height="10" class="art-res"/><rect x="1173" y="130" width="14" height="10" class="art-res"/><rect x="1198" y="130" width="14" height="10" class="art-res"/>`;
-  s += `<rect x="1160" y="108" width="14" height="10" class="art-res"/><rect x="1185" y="152" width="14" height="10" class="art-res"/>`;
-  // ПЧ
-  s += a.box(1250, 90, 100, 90, 'ПЧ', 'ACS880');
-  for (const x of [1275, 1300, 1325]) s += a.line(x, 60, x, 90) + a.line(x, 180, x, 195);
-  s += a.line(1350, 135, 1365, 135) + a.line(1365, 135, 1365, 195) + a.line(1350, 145, 1390, 145) + a.line(1390, 145, 1390, 195);
+  s += inPins(snIn) + a.leads(xs(snIn), P1 + 24, P1B - 24) + a.sensors(xs(snIn), P1 + 52, P1 + 126) + outPins(snOut);
+  // ПЧ с тормозным резистором
+  s += dev(fcIn, fcOut, 1190, 90, 'ПЧ', 'ACS880');
+  s += a.line(1280, P1 + 80, 1294, P1 + 80) + a.line(1294, P1 + 80, 1294, P1B - 24);
+  s += a.line(1280, P1 + 92, 1318, P1 + 92) + a.line(1318, P1 + 92, 1318, P1B - 24) + outPins(fcBr);
 
-  // машины: М3 (фазный ротор) — ротор a,b,c и статор A,B,C
-  const drop = (x1, x2, y1, y2) => a.line(x1, y1, x1, y2) + a.line(x2, y1, x2, y2) + a.line(x1, y2, x2, y2);
-  for (const x of [705, 755, 805]) s += drop(x, x + 25, 470, 500);
-  for (const x of [880, 930, 980]) s += drop(x, x + 25, 470, 500);
-  for (const x of [1085, 1135, 1185]) s += drop(x, x + 25, 470, 500);
-  // ротор М3 → кольца
-  s += a.line(717, 500, 717, 660) + a.line(717, 660, 900, 660) + a.line(767, 500, 767, 600) + a.line(817, 500, 817, 600);
-  s += a.meter(767, 540, 'V', 'PV2') + a.line(767, 540, 792, 540) + a.line(792, 540, 817, 540);
-  s += a.meter(817, 570, 'A', 'PA2');
-  s += a.line(767, 600, 900, 640) + a.line(817, 600, 905, 620);
-  // статор М3
-  s += a.line(892, 500, 892, 560) + a.line(942, 500, 942, 560) + a.line(992, 500, 992, 560);
-  s += a.meter(917, 530, 'V', 'PV1') + a.line(892, 530, 909, 530) + a.line(925, 530, 942, 530);
-  s += a.meter(892, 560, 'A', 'PA1');
-  s += a.line(892, 568, 892, 585) + a.line(942, 560, 942, 585) + a.line(992, 560, 992, 585);
-  s += a.circle(940, 610, 24, 'M3');
-  s += a.circle(880, 610, 11, 'ТГ') + a.line(891, 610, 916, 610, 'art-shaft');
-  s += a.line(964, 610, 1000, 610, 'art-shaft') + `<rect x="1000" y="598" width="44" height="24" class="dev-box"/>` + a.text(1022, 640, 'Датчик', 'lbl-tiny') + a.text(1022, 650, 'момента', 'lbl-tiny');
-  s += a.line(1044, 610, 1080, 610, 'art-shaft');
-  // статор М4: начала A,B,C и концы Y,X,Z
-  s += a.line(1097, 500, 1097, 560) + a.line(1147, 500, 1147, 560) + a.line(1197, 500, 1197, 560);
-  s += a.meter(1122, 530, 'V', 'PV3') + a.line(1097, 530, 1114, 530) + a.line(1130, 530, 1147, 530);
-  s += a.meter(1097, 560, 'A', 'PA3');
-  s += a.line(1097, 568, 1097, 585) + a.line(1147, 560, 1147, 585) + a.line(1197, 560, 1197, 585);
-  s += a.circle(1104, 610, 24, '') + a.text(1104, 606, 'A B C', 'lbl-tiny') + a.text(1104, 616, 'Z X Y', 'lbl-tiny') + a.text(1104, 626, 'M4', 'lbl-small');
-  s += a.text(1140, 615, 'M4', 'dev-title', 'start');
-  s += a.line(1265, 470, 1265, 640) + a.line(1290, 470, 1290, 650) + a.line(1315, 470, 1315, 660);
-  s += a.line(1265, 640, 1130, 640) + a.line(1290, 650, 1128, 650) + a.line(1315, 660, 1126, 660);
+  // ---- табличка 2 (слева внизу): цепь управления, контакты KM1–KM3, резисторы ----
+  const P2 = 376, P2B = 612;
+  s += a.plate(40, P2, 560, P2B - P2);
+  const cy = 428, y2 = cy + 22, y3 = cy + 50, y4 = cy + 78;
+  s += a.pins(xs(ctrl), P2 + 8);
+  s += a.line(60, P2 + 11, 60, cy) + a.line(60, cy, 70, cy) + a.button(84, cy, 'Стоп', true) + a.line(98, cy, 104, cy);
+  s += a.button(118, cy, 'Пуск') + a.line(132, cy, 140, cy) + a.line(140, cy, 140, P2 + 11);
+  s += a.line(104, cy, 104, y2) + a.contactH(118, y2, 'KM1') + a.line(132, y2, 140, y2) + a.line(140, y2, 140, cy);
+  s += a.line(164, P2 + 11, 164, cy) + a.line(164, cy, 167, cy) + a.coil(176, cy, 'KM1') + a.line(185, cy, 210, cy) + a.line(210, cy, 210, P2 + 11);
+  s += a.line(104, y2, 104, y3) + a.contactH(118, y3, 'KM1', true) + a.line(132, y3, 167, y3) + a.coil(176, y3, 'KM2') + a.line(185, y3, 210, y3);
+  s += a.line(104, y3, 104, y4) + a.contactH(118, y4, 'KM2', true) + a.line(132, y4, 167, y4) + a.coil(176, y4, 'KM3') + a.line(185, y4, 210, y4);
+  s += a.line(210, cy, 210, y4);
+  // силовые контакты: три полюса, контакт на разной высоте
+  const kmY = { km1: 450, km2: 500, km3: 550 };
+  for (const [id, x0] of Object.entries(kmX)) {
+    const y = kmY[id];
+    s += a.pins(xs(kmTop[id]), P2 + 8) + a.pins(xs(kmBot[id]), P2B - 8);
+    s += a.text(x0 + 24, y - 24, id.toUpperCase(), 'lbl-big') + a.dashedBox(x0 - 14, y - 14, 76, 34);
+    for (const x of xs(kmTop[id])) s += a.line(x, P2 + 11, x, y - 8) + a.line(x, y - 8, x + 9, y + 8) + a.line(x, y + 9, x, P2B - 11);
+  }
+  // резисторы: 4,2 Ом и 1,2 Ом — по три штуки
+  for (const [g, ohm, x0] of resGroups) {
+    s += a.text(x0 + 60, 538, `${String(ohm).replace('.', ',')} Ом`, 'lbl-small');
+    for (let i = 0; i < 3; i++) {
+      const x1 = x0 + i * 48, x2 = x1 + 24;
+      s += a.pin(x1, P2B - 8) + a.pin(x2, P2B - 8);
+      s += a.resistorV(x1, 546, P2B - 11, '') + a.line(x1, 546, x2, 546) + a.line(x2, 546, x2, P2B - 11);
+    }
+  }
+
+  // ---- табличка 3 (справа внизу): М3, М4, R1 ----
+  const P3 = 472;
+  s += a.plate(680, P3, 700, 246);
+  const joinPairs = (pb, y) => {
+    let d = a.pins(xs(pb.nodes), P3 + 8) + a.leads(xs(pb.nodes), P3 + 11, y);
+    const cs = [];
+    for (let i = 0; i < pb.nodes.length; i += 2) {
+      d += a.line(pb.nodes[i].x, y, pb.nodes[i + 1].x, y);
+      cs.push((pb.nodes[i].x + pb.nodes[i + 1].x) / 2);
+      d += a.text(cs[cs.length - 1], P3 + 24, pb.nodes[i].label, 'lbl-tiny');
+    }
+    return [d, cs];
+  };
+  const jy = P3 + 40;
+  const M3 = { x: 900, y: 640 }, M4 = { x: 1040, y: 640 };
+  // ротор М3 (кольца a, b, c) → PV2, PA2 → снизу в машину
+  const [dR, [ra, rb, rc]] = joinPairs(m3r, jy);
+  s += dR;
+  s += a.line(ra, jy, ra, 700) + a.line(ra, 700, M3.x - 8, 700) + a.line(M3.x - 8, 700, M3.x - 8, M3.y + 22);
+  s += a.line(rb, jy, rb, 690) + a.line(rb, 690, M3.x, 690) + a.line(M3.x, 690, M3.x, M3.y + 24);
+  s += a.line(rc, jy, rc, 680) + a.line(rc, 680, M3.x + 8, 680) + a.line(M3.x + 8, 680, M3.x + 8, M3.y + 22);
+  s += a.meterAcross(rb, rc, jy + 30, 'PV2') + a.meter(rb, jy + 60, 'A', 'PA2');
+  // статор М3 → PV1, PA1 → сверху в машину
+  const [dS, [sa, sb, sc]] = joinPairs(m3s, jy);
+  s += dS;
+  s += a.line(sa, jy, sa, 600) + a.line(sa, 600, M3.x - 10, M3.y - 20);
+  s += a.line(sb, jy, sb, M3.y - 24);
+  s += a.line(sc, jy, sc, 600) + a.line(sc, 600, M3.x + 10, M3.y - 20);
+  s += a.meterAcross(sa, sb, jy + 30, 'PV1') + a.meter(sa, jy + 60, 'A', 'PA1');
+  s += a.circle(M3.x, M3.y, 24, 'M3');
+  s += a.circle(852, M3.y, 9, 'ТГ') + a.line(861, M3.y, M3.x - 24, M3.y, 'art-shaft');
+  // датчик момента и М4
+  s += a.line(M3.x + 24, M3.y, 944, M3.y, 'art-shaft') + `<rect x="944" y="${M3.y - 12}" width="48" height="24" class="dev-box"/>`;
+  s += a.text(968, M3.y + 28, 'Датчик', 'lbl-tiny') + a.text(968, M3.y + 38, 'момента', 'lbl-tiny');
+  s += a.line(992, M3.y, M4.x - 24, M3.y, 'art-shaft');
+  const [dU, [ua, ub, uc]] = joinPairs(m4s, jy);
+  s += dU;
+  s += a.line(ua, jy, ua, 600) + a.line(ua, 600, M4.x - 10, M4.y - 20);
+  s += a.line(ub, jy, ub, 600) + a.line(ub, 600, M4.x, M4.y - 24);
+  s += a.line(uc, jy, uc, 600) + a.line(uc, 600, M4.x + 10, M4.y - 20);
+  s += a.meterAcross(ua, ub, jy + 30, 'PV3') + a.meter(ua, jy + 60, 'A', 'PA3');
+  s += a.circle(M4.x, M4.y, 24, '') + a.text(M4.x, M4.y - 4, 'A B C', 'lbl-tiny') + a.text(M4.x, M4.y + 8, 'Z X Y', 'lbl-tiny');
+  s += a.text(M4.x + 30, M4.y + 5, 'M4', 'dev-title', 'start');
+  // концы фаз М4: Y, X, Z — снизу в машину
+  const [ey, ex, ez] = xs(m4e);
+  s += a.pins([ey, ex, ez], P3 + 8) + m4e.map(n => a.text(n.x, P3 + 24, n.label, 'lbl-tiny')).join('');
+  s += a.line(ey, P3 + 11, ey, 700) + a.line(ey, 700, M4.x - 8, 700) + a.line(M4.x - 8, 700, M4.x - 8, M4.y + 22);
+  s += a.line(ex, P3 + 11, ex, 690) + a.line(ex, 690, M4.x, 690) + a.line(M4.x, 690, M4.x, M4.y + 24);
+  s += a.line(ez, P3 + 11, ez, 680) + a.line(ez, 680, M4.x + 8, 680) + a.line(M4.x + 8, 680, M4.x + 8, M4.y + 22);
   // R1
-  s += drop(1355, 1380, 470, 500) + drop(1405, 1430, 470, 500);
-  s += a.line(1367, 500, 1367, 530) + a.resistorV(1367, 530, 600, 'R₁') + a.line(1367, 600, 1367, 610) + a.line(1367, 610, 1417, 610) + a.line(1417, 610, 1417, 500);
+  const [dQ, [q1, q2]] = joinPairs(r1, jy);
+  s += dQ;
+  s += a.line(q1, jy, q1, 540) + a.resistorV(q1, 540, 600, 'R₁') + a.line(q1, 600, q1, 620) + a.line(q1, 620, q2, 620) + a.line(q2, 620, q2, jy);
+
+  // концевой выключатель двери
+  s += a.limitSwitch(1420, 600);
   return s;
 }
+const names = {
+  in1: 'Ввод 1 ~380 В', in2: 'Ввод 2 ~380 В', ctrl: 'Цепь управления',
+  km1: 'Контакты KM1', km2: 'Контакты KM2', km3: 'Контакты KM3',
+  tpn: 'ТПН PST30', tp: 'ТП DCS800', fc: 'ПЧ ACS880', pw: 'Ваттметр PW', sens: 'Датчики ДН/ДТ',
+  m3: 'М3 статор', m3r: 'М3 ротор', m4: 'М4 статор', r1: 'Резистор R1',
+  ra1: 'Резистор 4,2 Ом', ra2: 'Резистор 4,2 Ом', ra3: 'Резистор 4,2 Ом',
+  rb1: 'Резистор 1,2 Ом', rb2: 'Резистор 1,2 Ом', rb3: 'Резистор 1,2 Ом',
+};
 
 export const acBench = {
   id: 'ac',
   title: 'Стенд для исследования электроприводов с асинхронными двигателями',
   cabinets: 'Б1–Б6',
-  field: { w: 1500, h: 700, nodes, buses, jumpers, art: fieldArt },
+  field: { w: 1500, h: 740, nodes, buses, jumpers, art: fieldArt, names },
 
   breakers: [
     { id: 'rcd', label: 'УЗО', poles: 2, group: 'main' },
@@ -174,7 +231,9 @@ export const acBench = {
     { id: 'in2', label: 'Ввод 2', voltage: '~380 В', kind: 'ac', breaker: 'drives', nodes: { A: 'in2.A', B: 'in2.B', C: 'in2.C', N: 'in2.N' } },
   ],
 
-  ctrlChain: { X1: 'ctrl.X1', X2: 'ctrl.X2' },
+  // X1 — начало цепи (Стоп), X4 — возврат; разрыв X2–X3 стоит последовательно
+  // с катушкой KM1 и должен быть замкнут проводом (или внешним контактом).
+  ctrlChain: { X1: 'ctrl.X1', X2: 'ctrl.X4', gap: ['ctrl.X2', 'ctrl.X3'] },
   contactors: [
     { id: 'km1', contacts: [['km1.1', 'km1.2'], ['km1.3', 'km1.4'], ['km1.5', 'km1.6']] },
     { id: 'km2', contacts: [['km2.1', 'km2.2'], ['km2.3', 'km2.4'], ['km2.5', 'km2.6']], after: 'km1', timer: 't1' },
