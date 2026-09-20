@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Лабораторные стенды «Электрический привод»</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-abb">ABB</span>
+    <h1>Лабораторные стенды «Электрический привод»</h1>
+  </div>
+  <nav class="bench-tabs" id="bench-tabs">
+    <button data-bench="dc">Стенд ДПТ <small>шкафы А1–А6</small></button>
+    <button data-bench="ac">Стенд АД <small>шкафы Б1–Б6</small></button>
+  </nav>
+  <div class="toolbar">
+    <button id="btn-check" class="tb" title="Статическая проверка собранной схемы">Проверить схему</button>
+    <button id="btn-clear" class="tb" title="Удалить все провода">Снять провода</button>
+    <button id="btn-save" class="tb" title="Сохранить схему в файл">Сохранить</button>
+    <label class="tb file-label" title="Загрузить схему из файла">Загрузить<input id="file-load" type="file" accept=".json" hidden></label>
+    <div class="wire-colors" id="wire-colors" title="Цвет провода"></div>
+  </div>
+</header>
+
+<main id="app">
+  <section class="cab-row cab-row-top">
+    <div class="cabinet" id="power-cabinet">
+      <div class="cabinet-title" id="power-title">Панель подключения питающих напряжений</div>
+      <div id="power-panel"></div>
+    </div>
+    <div class="cabinet" id="meters-cabinet">
+      <div class="cabinet-title">Панель измерительных приборов</div>
+      <div id="meters-panel"></div>
+    </div>
+  </section>
+
+  <section class="cab-row cab-row-conv">
+    <div id="converters" class="conv-list"></div>
+    <div class="cabinet cabinet-motors">
+      <div class="cabinet-title">Двухмашинный агрегат</div>
+      <div id="motors"></div>
+    </div>
+  </section>
+
+  <section class="cab-row cab-row-field">
+    <div class="cabinet cabinet-field">
+      <div class="cabinet-title">
+        <span id="field-title">Монтажный отсек (наборное поле)</span>
+        <span class="door-state" id="door-state"></span>
+        <span class="zoom-ctl"><button id="zoom-out" title="Уменьшить">−</button><button id="zoom-fit" title="По ширине">100%</button><button id="zoom-in" title="Увеличить">+</button></span>
+        <button id="btn-door" class="door-btn"></button>
+      </div>
+      <div id="field-panel" class="field-panel"></div>
+      <div id="field-controls" class="field-controls"></div>
+    </div>
+    <aside class="side">
+      <div class="cabinet cabinet-log">
+        <div class="cabinet-title">Диагностика <button id="btn-log-clear" class="mini">очистить</button></div>
+        <div id="log"></div>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<div id="hint" class="hint"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
