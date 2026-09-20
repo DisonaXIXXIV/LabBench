@@ -50,7 +50,7 @@ const RF = 220 / 1.44; // сопротивление обмотки возбуж
 // механика вала двухмашинного агрегата
 const J_SHAFT = 0.4;                  // суммарный момент инерции, кг·м²
 const RPM_PER_NM = 60 / (2 * Math.PI) / J_SHAFT; // ускорение, (об/мин)/с на 1 Нм
-const friction = (w) => 3 * Math.tanh(w / 30) + 0.004 * w; // трение + вентиляция, Нм
+const friction = (w) => 1.5 * Math.tanh(w / 30) + 0.002 * w; // трение + вентиляция, Нм (≈5,5 Нм при 2000 об/мин)
 const REGEN_W = 150;                  // порог генераторной мощности ПЧ, Вт
 const REGEN_T = 0.5;                  // время до перенапряжения звена ПТ без тормозного резистора, с
 
@@ -81,6 +81,7 @@ export class QuasiStaticModel extends DriveModel {
     this.currents = {};
     this.uf = 0; // напряжение возбуждения ТП (ДПТ-стенд)
     this.regen = {};   // время генераторного режима ПЧ без тормозного резистора, по преобразователям
+    this.tpU = {};     // напряжение якорного выхода ТП в режиме тока, по преобразователям
     this.stalled = {}; // АД, опрокинутые моментом нагрузки (для однократного сообщения)
   }
 
@@ -117,7 +118,8 @@ export class QuasiStaticModel extends DriveModel {
   tpArmVoltage(conv, cv) {
     if (cv.mode === 'U') return cv.ref;
     if (cv.mode === 'w') return cv.ref / 2000 * 240;
-    if (cv.mode === 'I') return Math.sign(cv.ref) * Math.min(240, 60 + Math.abs(cv.ref) * 4);
+    // режим тока: напряжение, которое регулятор выставил на прошлом шаге (E + I·Rя, не выше предела)
+    if (cv.mode === 'I') return this.tpU?.[conv.id] ?? Math.sign(cv.ref) * Math.min(conv.umax || 240, Math.abs(cv.ref) * 0.4);
     return 0;
   }
 
@@ -155,6 +157,7 @@ export class QuasiStaticModel extends DriveModel {
     let anyEnergized = false;
     const brakes = [];      // {id, mk, wk, ieq}
     const ims = [];         // {id, w0, sk, mk, u}
+    const dcs = [];         // ДПТ на характеристике: {id, torque(w), armI(w), limited(w)}
     let fcDrive = null;     // чем ПЧ нагружает вал: {dev, kind:'torque'|'speed'|'im', im}
 
     for (const m of bench.motors) {
@@ -165,18 +168,39 @@ export class QuasiStaticModel extends DriveModel {
         const [ap, an] = m.windings.arm;
         const uf = Math.abs(Vdc(fp, fn));
         const ua = Vdc(ap, an);
+        const N = m.nominal;
+        const tpId = this.tpDev(ctx, ap, an);
+        const drv = tpId ? ctx.converters[tpId] : null;
+        const conv = tpId ? bench.converters.find(c => c.id === tpId) : null;
         const hasField = uf > 50;
-        const hasArm = Math.abs(ua) > 5;
+        const hasArm = Math.abs(ua) > 5 || (drv?.mode === 'I' && drv.ref !== 0);
         cur.field = uf / RF;
+        // kΦ по току возбуждения (без насыщения): E = kΦ·ω, M = kΦ·I
+        const kphi = (N.voltage || 240) / ((N.speed || 2000) * 2 * Math.PI / 60) * cur.field / (N.field || 1.44);
+        cur.kphi = kphi;
         const fdev = this.fieldDev(ctx, fp, fn);
         if (fdev) convIf[fdev] = (convIf[fdev] || 0) + cur.field;
         if (hasArm) {
           anyEnergized = true;
           if (hasField) {
-            const drv = this.tpDrive(ctx, ap, an);
             if (drv && drv.mode === 'w') speedTarget = drv.ref;
-            else if (drv && drv.mode === 'I') { torqueTarget = drv.ref * 0.9; speedTarget = Math.sign(drv.ref) * 1800; }
-            else speedTarget = ua / 240 * 2000;
+            else {
+              // естественная характеристика: I = (U − kΦ·ω)/Rя, M = kΦ·I.
+              // Режим U: регулятор ТП ограничивает ток (ilim); режим I: ТП держит I = Iзад,
+              // поднимая напряжение U = E + I·Rя, пока не упрётся в предел umax — дальше
+              // ток падает, а скорость определяется пределом напряжения и возбуждением.
+              const ra = m.ra || 0.4;
+              const umax = conv?.umax || 240;
+              const iRef = drv?.mode === 'I' ? drv.ref : null;
+              const ilim = drv ? (conv.ilim || Infinity) : Infinity;
+              const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
+              const emf = (w) => kphi * w * 2 * Math.PI / 60;
+              const armU = (w) => iRef !== null ? clamp(emf(w) + iRef * ra, umax) : ua;
+              const armI = (w) => iRef !== null ? (armU(w) - emf(w)) / ra : clamp((ua - emf(w)) / ra, ilim);
+              const limited = (w) => iRef !== null && Math.abs(emf(w) + iRef * ra) > umax;
+              dcs.push({ id: m.id, torque: w => kphi * armI(w), armI, armU, limited, iRef });
+              if (tpId && iRef !== null) this.tpU[tpId] = armU(this.speed);
+            }
             st.state = 'run';
           } else {
             // без возбуждения — разнос
@@ -284,8 +308,10 @@ export class QuasiStaticModel extends DriveModel {
     // --- вал ---
     // суммарный тормозной момент АД в динамическом торможении при скорости w
     const brakeM = (w) => brakes.reduce((sum, b) => { const x = Math.abs(w) / b.wk; return sum + 2 * b.mk * x / (1 + x * x); }, 0);
-    // момент всех АД на характеристиках при скорости w
-    const imTorque = (w) => ims.reduce((sum, im) => sum + kloss(im, w), 0);
+    // момент всех машин на характеристиках (АД по Клоссу, ДПТ по естественной) при скорости w
+    const softTorque = (x, w) => x.torque ? x.torque(w) : kloss(x, w);
+    const softs = [...ims, ...dcs];
+    const imTorque = (w) => softs.reduce((sum, x) => sum + softTorque(x, w), 0);
     // всё, что действует на вал, кроме источников момента
     const passive = (w) => imTorque(w) - Math.sign(w) * brakeM(w) - friction(w);
     const shaftTorque = (w) => passive(w) + torqueTarget;
@@ -304,10 +330,10 @@ export class QuasiStaticModel extends DriveModel {
     // показание датчика момента: момент в муфте, положительный — когда нагрузочная
     // машина (вторая в агрегате) крутит испытуемую (первую)
     const idA = bench.motors[0].id;
-    const imA = ims.find(im => im.id === idA), imB = ims.find(im => im.id !== idA);
+    const imA = softs.find(x => x.id === idA), imB = softs.find(x => x.id !== idA);
     let dispTorque = torqueTarget;
-    if (dispTorque === 0 && imA) dispTorque = -kloss(imA, this.speed);
-    else if (dispTorque === 0 && imB) dispTorque = kloss(imB, this.speed);
+    if (dispTorque === 0 && imA) dispTorque = -softTorque(imA, this.speed);
+    else if (dispTorque === 0 && imB) dispTorque = softTorque(imB, this.speed);
     else if (dispTorque === 0 && brakes.length) dispTorque = Math.sign(this.speed) * brakeM(this.speed);
     else if (dispTorque === 0) dispTorque = 0.0005 * this.speed;
     this.torque = lag(this.torque, dispTorque, dt, 0.4);
@@ -326,6 +352,11 @@ export class QuasiStaticModel extends DriveModel {
       this.stalled[im.id] = stalled;
     }
     for (const id of Object.keys(this.stalled)) if (!ims.some(im => im.id === id)) this.stalled[id] = false;
+    for (const d of dcs) {
+      const st = motors[d.id];
+      const i = d.armI(this.speed);
+      st.note = `I_я = ${fmt(i)} А` + (d.limited(this.speed) ? ' — ТП на пределе напряжения, ток меньше задания' : d.iRef !== null ? ', ТП держит ток — вал разгоняется' : '');
+    }
 
     // рекуперация: генераторный режим ПЧ без тормозного резистора на Br+/Br− — перенапряжение звена ПТ
     if (fcDrive) {
@@ -353,8 +384,13 @@ export class QuasiStaticModel extends DriveModel {
       const cur = currents[m.id] || (currents[m.id] = {});
       const inom = m.nominal.current || 20;
       if (m.kind === 'dc') {
-        const base = st.state === 'run' ? 2 + Math.abs(this.torque) * 1.0 : st.state === 'runaway' ? 8 : 0;
-        cur.arm = Math.sign(Vdc(...m.windings.arm) || 1) * base;
+        const d = dcs.find(x => x.id === m.id);
+        if (d) cur.arm = d.armI(this.speed);
+        else {
+          // режим ω (замкнутый контур) — ток по моменту нагрузки; разнос — грубая оценка
+          const base = st.state === 'run' ? 1 + Math.abs(this.torque) / Math.max(0.2, cur.kphi || 1) : st.state === 'runaway' ? 8 : 0;
+          cur.arm = Math.sign(Vdc(...m.windings.arm) || 1) * base;
+        }
         const dev = this.tpDev(ctx, ...m.windings.arm);
         if (dev) convI[dev] = (convI[dev] || 0) + Math.abs(cur.arm);
       } else if (cur.dc) {

@@ -220,6 +220,8 @@ export const dcBench = {
       in: { A: 'tp.in.A', B: 'tp.in.B', C: 'tp.in.C' },
       out: { 'Я+': 'tp.out.Я+', 'Я−': 'tp.out.Я−', 'В+': 'tp.out.В+', 'В−': 'tp.out.В−' },
       imax: 50, // максимально-токовая защита ТП по току якоря, А
+      umax: 240, // предел выходного напряжения (в режиме тока ТП поднимает U до этого предела)
+      ilim: 40, // ограничение тока регулятором в режимах U/ω, А
       modes: [
         { id: 'I', label: 'I', unit: 'А', max: 25 },
         { id: 'w', label: 'ω', unit: 'об/мин', max: 2000 },
@@ -250,7 +252,9 @@ export const dcBench = {
     {
       id: 'm1', kind: 'dc', title: 'М1 — ДПТ НВ', tacho: true,
       windings: { field: ['m1.В+.1', 'm1.В−.1'], arm: ['m1.Я+.1', 'm1.Я−.1'] },
-      nominal: { speed: 2000, current: 25 },
+      // kΦ = U_ном/ω_ном при I_в = field и пропорционально току возбуждения; ra — сопротивление якоря, Ом
+      nominal: { speed: 2000, current: 25, voltage: 240, field: 1.44 },
+      ra: 0.4,
     },
     {
       id: 'm2', kind: 'pmsm', title: 'М2 — СДПМ (нагрузочная)',
