@@ -57,6 +57,7 @@ button { font: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: 10px;
 }
 .cabinet-title small { text-transform: none; letter-spacing: 0; color: #7b8590; }
+.cabinet-title .zoom-ctl { margin-left: auto; }
 .cab-row-top #power-cabinet { flex: 0 0 auto; min-width: 560px; }
 .cab-row-top #meters-cabinet { flex: 1 1 auto; }
 .cab-row-field { align-items: flex-start; }
@@ -246,6 +247,32 @@ button { font: inherit; cursor: pointer; }
 .pst-label { margin: 6px 10px; height: 60px; background: repeating-linear-gradient(#3b3e44 0 3px, #2c2f34 3px 6px); border: 1px solid #444; }
 
 /* ---------- наборное поле ---------- */
+/* кнопка-«дверца»: в свёрнутом виде крупная и заметная, в развёрнутом — узкая полоса над полем */
+.field-toggle {
+  display: flex; align-items: center; gap: 14px; width: 100%; margin: 0 0 8px; padding: 12px 18px; text-align: left;
+  background: linear-gradient(#ff2a36, var(--abb-red)); color: #fff; border: 2px solid #b0000a; border-radius: 5px;
+  box-shadow: 0 3px 0 #8a0008, 0 5px 12px rgba(0,0,0,.4); transition: background .15s, transform .1s, box-shadow .1s;
+}
+.field-toggle:hover { background: linear-gradient(#ff4552, #e8000e); }
+.field-toggle:active { transform: translateY(2px); box-shadow: 0 1px 0 #8a0008; }
+.ft-icon { font-size: 26px; line-height: 1; }
+.ft-text { display: flex; flex-direction: column; line-height: 1.2; }
+.ft-text b { font-size: 16px; letter-spacing: .02em; }
+.ft-text small { font-size: 11px; opacity: .85; }
+.ft-chev { margin-left: auto; font-size: 20px; transition: transform .25s; }
+.cabinet-field.open .field-toggle {
+  padding: 5px 14px; gap: 10px; background: #3a4048; border-color: #23272c; box-shadow: 0 2px 0 #1a1d22;
+}
+.cabinet-field.open .field-toggle:hover { background: #4a515a; }
+.cabinet-field.open .ft-icon { font-size: 16px; }
+.cabinet-field.open .ft-text b { font-size: 12px; }
+.cabinet-field.open .ft-text small { display: none; }
+.cabinet-field.open .ft-chev { transform: rotate(180deg); font-size: 14px; }
+.cabinet-field:not(.open) #field-panel,
+.cabinet-field:not(.open) .zoom-ctl,
+.cabinet-field:not(.open) .door-state,
+.cabinet-field:not(.open) .door-btn { display: none; }
+.cab-row-field.collapsed #log { height: 200px; }
 .field-panel { position: relative; background: #3a3d42; padding: 6px; border: 1px solid #222; border-radius: 4px; }
 .field-scroll { overflow: auto; max-height: 78vh; }
 .field-svg { width: 100%; display: block; }
@@ -324,7 +351,7 @@ button { font: inherit; cursor: pointer; }
 .door-state { font-size: 10px; text-transform: none; letter-spacing: 0; }
 .door-state.open { color: var(--warn); }
 .door-state.closed { color: var(--ok); }
-.door-btn { margin-left: auto; font-size: 11px; background: #fff; border: 1px solid var(--cab-edge); border-radius: 3px; padding: 2px 10px; }
+.door-btn { margin-left: 0; font-size: 11px; background: #fff; border: 1px solid var(--cab-edge); border-radius: 3px; padding: 2px 10px; }
 
 .field-controls { display: flex; gap: 24px; align-items: flex-end; padding: 10px 14px 4px; }
 .fc-group { display: flex; gap: 14px; align-items: flex-end; }

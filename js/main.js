@@ -30,6 +30,7 @@ function hint(text, flash = false) {
 class App {
   constructor() {
     this.benchId = localStorage.getItem('abblab.bench') || 'dc';
+    this.fieldOpen = localStorage.getItem('abblab.fieldOpen') === '1';
     this.buildToolbar();
     this.mount(this.benchId);
     this.last = performance.now();
@@ -51,6 +52,7 @@ class App {
     }
     $('#btn-check').addEventListener('click', () => this.log.report(staticCheck(this.bench, this.state.wires)));
     $('#btn-clear').addEventListener('click', () => {
+      this.setFieldOpen(true);
       if (!this.state.door) { hint('Сначала откройте дверь монтажного отсека', true); return; }
       if (this.state.wires.length && confirm('Снять все провода со схемы?')) this.field.clearWires();
     });
@@ -65,6 +67,7 @@ class App {
     $('#file-load').addEventListener('change', async e => {
       const f = e.target.files[0];
       if (!f) return;
+      this.setFieldOpen(true);
       try {
         if (!this.state.door) throw new Error('Сначала откройте дверь монтажного отсека');
         const wires = importWires(this.bench, await f.text());
@@ -73,6 +76,7 @@ class App {
       } catch (err) { this.log.error(`Загрузка: ${err.message}`); }
       e.target.value = '';
     });
+    $('#btn-field').addEventListener('click', () => this.setFieldOpen(!this.fieldOpen));
     $('#btn-door').addEventListener('click', () => { this.rt.toggleDoor(); this.syncDoor(); saveState(this.state); });
     const zoomLabel = z => { $('#zoom-fit').textContent = `${Math.round(z * 100)}%`; };
     $('#zoom-in').addEventListener('click', () => zoomLabel(this.field.setZoom(this.field.zoom * 1.25)));
@@ -96,7 +100,7 @@ class App {
     $('#field-title').textContent = `Монтажный отсек (наборное поле) · шкаф ${id === 'dc' ? 'А2' : 'Б5'}`;
 
     this.state = loadState(bench);
-    this.log = new Log($('#log'), ids => this.field?.highlight(ids));
+    this.log = new Log($('#log'), ids => { if (ids.length) this.setFieldOpen(true); this.field?.highlight(ids); });
     this.model = createModel(bench);
     this.rt = new BenchRuntime(bench, this.state, this.model, this.log);
 
@@ -116,8 +120,26 @@ class App {
     this.motors = new MotorsPanel($('#motors'), bench);
     this.updateColorUI();
     this.syncDoor();
+    this.syncField();
     this.log.info(`${bench.title}`);
     this.log.info('Откройте дверь отсека, соберите схему проводами, закройте дверь, включите автоматы и вводы.');
+  }
+
+  /** Показать/скрыть наборное поле (сам монтажный отсек); органы под ним остаются на виду. */
+  setFieldOpen(open) {
+    if (this.fieldOpen === open) return;
+    this.fieldOpen = open;
+    localStorage.setItem('abblab.fieldOpen', open ? '1' : '0');
+    this.syncField();
+    if (open) $('#field-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  syncField() {
+    const open = this.fieldOpen;
+    document.querySelector('.cabinet-field').classList.toggle('open', open);
+    document.querySelector('.cab-row-field').classList.toggle('collapsed', !open);
+    $('#ft-title').textContent = open ? 'Скрыть наборное поле' : 'Открыть наборное поле';
+    $('#ft-sub').textContent = `клеммники, схема, монтаж проводов · шкаф ${this.benchId === 'dc' ? 'А2' : 'Б5'}`;
   }
 
   syncDoor() {
