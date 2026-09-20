@@ -103,9 +103,11 @@ export const art = {
       (label ? art.text(x + 10, cy + 4, label, 'lbl-small', 'start') : '');
   },
   /** Катушка контактора (подпись над катушкой). */
+  /** Катушка контактора: узкий прямоугольник с отводами до x±9 и подписью сверху. */
   coil(x, y, label) {
-    return `<rect x="${x - 9}" y="${y - 14}" width="18" height="28" class="art-coil"/>` +
-      art.text(x, y - 18, label, 'lbl-small');
+    return art.line(x - 9, y, x - 7, y) + art.line(x + 7, y, x + 9, y) +
+      `<rect x="${x - 7}" y="${y - 9}" width="14" height="18" class="art-coil"/>` +
+      art.text(x, y - 13, label, 'lbl-small');
   },
   /** НО-контакт (горизонтально) с подписью. */
   contactH(x, y, label, timed = false) {

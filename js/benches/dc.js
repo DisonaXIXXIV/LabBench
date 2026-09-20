@@ -90,14 +90,14 @@ function fieldArt() {
     s += a.text(x, P1 + 42, v, 'lbl-big') + a.text(x, P1 + 62, t, 'lbl-big');
   }
   // цепь управления: X1 — Стоп — Пуск/KM1 — катушки KM1..KM3 — X2
-  const cy = 185, y2 = cy + 22, y3 = cy + 55, y4 = cy + 87;
-  s += a.pin(60, P1B - 8) + a.line(60, P1B - 11, 60, cy) + a.line(60, cy, 68, cy);
-  s += a.button(82, cy, 'Стоп', true) + a.line(96, cy, 100, cy);
-  s += a.button(114, cy, 'Пуск') + a.line(128, cy, 132, cy);
-  s += a.line(100, cy, 100, y2) + a.contactH(114, y2, 'KM1') + a.line(128, y2, 132, y2) + a.line(132, y2, 132, cy);
+  const cy = 185, y2 = cy + 22, y3 = cy + 54, y4 = cy + 86; // строки: пуск/катушка KM1, самоподхват, KM2, KM3
+  s += a.pin(60, P1B - 8) + a.line(60, P1B - 11, 60, cy) + a.line(60, cy, 64, cy);
+  s += a.button(78, cy, 'Стоп', true) + a.line(92, cy, 96, cy);
+  s += a.button(110, cy, 'Пуск') + a.line(124, cy, 132, cy);
+  s += a.line(96, cy, 96, y2) + a.contactH(110, y2, 'KM1') + a.line(124, y2, 132, y2) + a.line(132, y2, 132, cy);
   s += a.coil(141, cy, 'KM1') + a.line(150, cy, 150, P1B - 11) + a.pin(150, P1B - 8);
-  s += a.line(100, y2, 100, y3) + a.contactH(114, y3, 'KM1', true) + a.line(128, y3, 132, y3) + a.coil(141, y3, 'KM2');
-  s += a.line(100, y3, 100, y4) + a.contactH(114, y4, 'KM2', true) + a.line(128, y4, 132, y4) + a.coil(141, y4, 'KM3');
+  s += a.line(96, y2, 96, y3) + a.contactH(110, y3, 'KM1', true) + a.line(124, y3, 132, y3) + a.coil(141, y3, 'KM2');
+  s += a.line(96, y3, 96, y4) + a.contactH(110, y4, 'KM2', true) + a.line(124, y4, 132, y4) + a.coil(141, y4, 'KM3');
   // силовые контакты KM1..KM3: по два НО-контакта
   for (const [id, b] of Object.entries(km)) {
     const [x1, x2, x3, x4] = xs(b);

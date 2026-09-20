@@ -123,7 +123,7 @@ function fieldArt() {
   // ---- табличка 2 (слева внизу): цепь управления, контакты KM1–KM3, резисторы ----
   const P2 = 376, P2B = 612;
   s += a.plate(40, P2, 560, P2B - P2);
-  const cy = 428, y2 = cy + 22, y3 = cy + 50, y4 = cy + 78;
+  const cy = 428, y2 = cy + 22, y3 = cy + 54, y4 = cy + 86; // строки: пуск/катушка KM1, самоподхват, KM2, KM3
   s += a.pins(xs(ctrl), P2 + 8);
   s += a.line(60, P2 + 11, 60, cy) + a.line(60, cy, 70, cy) + a.button(84, cy, 'Стоп', true) + a.line(98, cy, 104, cy);
   s += a.button(118, cy, 'Пуск') + a.line(132, cy, 140, cy) + a.line(140, cy, 140, P2 + 11);
