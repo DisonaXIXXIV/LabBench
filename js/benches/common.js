@@ -51,6 +51,16 @@ export const art = {
       `<rect x="${x1 - 6}" y="${y - 22}" width="7" height="44" rx="1" class="rail-clip"/>` +
       `<rect x="${x2 - 1}" y="${y - 22}" width="7" height="44" rx="1" class="rail-clip"/>`;
   },
+  /** Перфорированный кабель-канал между рейками: внутренняя проводка клеммников уходит в него. */
+  duct(x1, x2, y, h) {
+    let s = `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="${h}" rx="1.5" class="duct"/>` +
+      `<rect x="${x1}" y="${y + 6}" width="${x2 - x1}" height="${h - 12}" class="duct-lid"/>`;
+    for (let x = x1 + 5; x < x2 - 4; x += 8) {
+      s += `<rect x="${x}" y="${y + 1.5}" width="4" height="3.5" rx=".8" class="duct-slot"/>` +
+        `<rect x="${x}" y="${y + h - 5}" width="4" height="3.5" rx=".8" class="duct-slot"/>`;
+    }
+    return s;
+  },
   /** Табличка со схемой (белый лист под/над клеммниками). */
   plate(x, y, w, h) {
     return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="plate"/>`;

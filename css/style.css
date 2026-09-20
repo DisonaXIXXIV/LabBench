@@ -289,6 +289,9 @@ button { font: inherit; cursor: pointer; }
 .art .rail { fill: url(#fld-rail); stroke: #6f757c; stroke-width: .6; }
 .art .rail-slot { fill: #7c8289; opacity: .55; }
 .art .rail-clip { fill: #9ea3a8; stroke: #5f656b; stroke-width: .6; }
+.art .duct { fill: #b9bdc2; stroke: #6f757c; stroke-width: .6; }
+.art .duct-lid { fill: #cdd1d5; stroke: #9aa0a6; stroke-width: .5; }
+.art .duct-slot { fill: #5f656b; }
 .art .plate { fill: #fbfbf8; stroke: #b9bcb5; stroke-width: .6; filter: url(#fld-shadow); }
 .art .pin { fill: #fff; stroke: #222; stroke-width: .9; }
 .art .dev-box { fill: #fff; stroke: #222; stroke-width: 1.1; }

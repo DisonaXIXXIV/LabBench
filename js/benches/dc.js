@@ -46,6 +46,7 @@ jumpers.push(['sens.in.A', 'sens.out.U'], ['sens.in.B', 'sens.out.V'], ['sens.in
 
 // ---- Рейка 3 (справа): резисторы и машины; зажимы снизу ----
 const R3 = 430;
+const DUCT = { x1: 740, x2: 1390, y: R2 + 30, h: R3 - R2 - 60 };
 const resistors = [
   { id: 'r1', ohm: 6.3, x0: 760 },
   { id: 'r2', ohm: 1.7, x0: 856 },
@@ -76,6 +77,8 @@ function fieldArt() {
   s += a.rail(30, 370, R1) + a.rail(920, 1380, R1);
   s += a.rail(40, 80, R2) + a.rail(128, 480, R2) + a.rail(920, 1380, R2);
   s += a.rail(740, 1340, R3);
+  // кабель-канал между рейками 2 и 3: сюда уходит внутренняя проводка обоих рядов
+  s += a.duct(DUCT.x1, DUCT.x2, DUCT.y, DUCT.h);
   s += a.rail(40, 730, R4);
 
   // ---- табличка 1 (слева): вводы, цепь управления, контакты KM1–KM3 ----
@@ -187,7 +190,7 @@ export const dcBench = {
   id: 'dc',
   title: 'Стенд для исследования электропривода с двигателем постоянного тока',
   cabinets: 'А1–А6',
-  field: { w: 1500, h: 720, nodes, buses, jumpers, art: fieldArt, names },
+  field: { w: 1500, h: 720, nodes, buses, jumpers, ducts: [DUCT], art: fieldArt, names },
 
   breakers: [
     { id: 'rcd', label: 'УЗО', poles: 2, group: 'main' },

@@ -51,6 +51,7 @@ jumpers.push(['sens.in.A', 'sens.out.U'], ['sens.in.B', 'sens.out.V'], ['sens.in
 
 // ---- Рейка 3 (справа): машины и R1; зажимы снизу ----
 const R3 = 430;
+const DUCT = { x1: 660, x2: 1380, y: R2 + 30, h: R3 - R2 - 60 };
 const m3r = pairBlock('m3r', ['a', 'b', 'c'], 700, R3, 'bottom', PH3);
 const m3s = pairBlock('m3', ['A', 'B', 'C'], 860, R3, 'bottom', PH3);
 const m4s = pairBlock('m4', ['A', 'B', 'C'], 1020, R3, 'bottom', PH3);
@@ -82,6 +83,8 @@ function fieldArt() {
   s += a.rail(30, 280, R1) + a.rail(660, 1300, R1);
   s += a.rail(40, 80, R2) + a.rail(118, 240, R2) + a.rail(330, 580, R2) + a.rail(660, 1350, R2);
   s += a.rail(680, 1370, R3);
+  // кабель-канал между рейками 2 и 3: сюда уходит внутренняя проводка обоих рядов
+  s += a.duct(DUCT.x1, DUCT.x2, DUCT.y, DUCT.h);
   s += a.rail(40, 580, R4);
 
   // ---- табличка 1 (слева): вводы ----
@@ -218,7 +221,7 @@ export const acBench = {
   id: 'ac',
   title: 'Стенд для исследования электроприводов с асинхронными двигателями',
   cabinets: 'Б1–Б6',
-  field: { w: 1500, h: 740, nodes, buses, jumpers, art: fieldArt, names },
+  field: { w: 1500, h: 740, nodes, buses, jumpers, ducts: [DUCT], art: fieldArt, names },
 
   breakers: [
     { id: 'rcd', label: 'УЗО', poles: 2, group: 'main' },

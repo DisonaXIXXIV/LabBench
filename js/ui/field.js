@@ -51,8 +51,14 @@ export class Field {
       const dir = up ? -1 : 1;               // направление «наружу» от свободных зажимов
       const fy = dir * TERM.clampDy;         // y свободных зажимов
       const sy = -fy;                        // y зажима внутренней проводки
-      // внутренняя проводка: провод уходит за пределы корпуса
-      svg('path', { d: `M0 ${sy} L0 ${sy - dir * 30} q0 ${-dir * 6} 6 ${-dir * 8}`, class: 'node-inwire' }, g);
+      // внутренняя проводка: провод уходит в кабель-канал (если он есть на пути) либо за пределы корпуса
+      const wd = -dir;                       // направление внутреннего провода
+      const duct = (this.bench.field.ducts || []).find(d => n.x >= d.x1 && n.x <= d.x2 &&
+        (wd < 0 ? d.y + d.h <= n.y - TERM.h / 2 : d.y >= n.y + TERM.h / 2));
+      const inwire = duct
+        ? `M0 ${sy} L0 ${(wd < 0 ? duct.y + duct.h : duct.y) - n.y + wd * 2}`
+        : `M0 ${sy} L0 ${sy + wd * 30} q0 ${wd * 6} 6 ${wd * 8}`;
+      svg('path', { d: inwire, class: 'node-inwire' }, g);
       svg('rect', { x: -TERM.w / 2, y: -TERM.h / 2, width: TERM.w, height: TERM.h, rx: 2, class: 'node-body' }, g);
       svg('circle', { cx: 0, cy: sy, r: 3.2, class: 'node-hole' }, g);
       svg('rect', { x: -2.5, y: sy + (up ? 5 : -10), width: 5, height: 5, class: 'node-btn' }, g);
