@@ -53,10 +53,11 @@ export class BenchRuntime {
     } else {
       const wasLive = Object.values(s.inputs).some(Boolean);
       s.door = true;
-      if (wasLive) {
-        this.log.error('Дверь открыта под напряжением — сработал независимый расцепитель');
-        this.tripAll('открыта дверь');
-      } else this.log.info('Дверь монтажного отсека открыта — можно собирать схему');
+      if (wasLive) this.log.error('Дверь открыта под напряжением — сработал независимый расцепитель');
+      // концевой выключатель двери: при любом открытии отключаются автоматы
+      // с независимым расцепителем («Питание на приводы» и т.п.), даже если вводы были выключены
+      const tripped = this.tripAll('открыта дверь');
+      if (!wasLive) this.log.info(tripped ? 'Дверь монтажного отсека открыта — можно собирать схему; для подачи питания снова включите автомат' : 'Дверь монтажного отсека открыта — можно собирать схему');
     }
     this.afterPowerChange();
   }
@@ -116,11 +117,14 @@ export class BenchRuntime {
     return (b.needs || []).every(n => this.breakerLive(n));
   }
 
+  /** Отключить все автоматы с независимым расцепителем и вводы. Возвращает число отключённых автоматов. */
   tripAll(reason) {
     const s = this.state;
-    for (const b of this.bench.breakers) if (b.trip && s.breakers[b.id]) { s.breakers[b.id] = false; this.log.warn(`Расцепитель: автомат «${b.label}» отключён (${reason})`); }
+    let n = 0;
+    for (const b of this.bench.breakers) if (b.trip && s.breakers[b.id]) { s.breakers[b.id] = false; n++; this.log.warn(`Расцепитель: автомат «${b.label}» отключён (${reason})`); }
     for (const k of Object.keys(s.inputs)) s.inputs[k] = false;
-    this.rt.tripFlash = 1.5;
+    if (n) this.rt.tripFlash = 1.5;
+    return n;
   }
 
   tripFor(inp) {
