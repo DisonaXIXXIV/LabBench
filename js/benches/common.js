@@ -159,8 +159,7 @@ export const art = {
   limitSwitch(x, y) {
     return `<rect x="${x}" y="${y}" width="46" height="70" rx="3" class="lsw-body"/>` +
       `<rect x="${x + 6}" y="${y + 8}" width="34" height="28" rx="2" class="lsw-label"/>` +
-      `<text x="${x + 23}" y="${y + 20}" class="lbl-tiny" text-anchor="middle">ABB</text>` +
-      `<text x="${x + 23}" y="${y + 30}" class="lbl-tiny" text-anchor="middle">LS</text>` +
+      `<text x="${x + 23}" y="${y + 26}" class="lbl-tiny" text-anchor="middle">LS</text>` +
       `<rect x="${x + 16}" y="${y + 70}" width="14" height="12" class="lsw-plunger"/>` +
       `<circle cx="${x + 23}" cy="${y + 88}" r="6" class="lsw-roller"/>`;
   },

@@ -76,7 +76,7 @@ export class ConverterPanel {
     const c = this.conv;
     const wrap = document.createElement('div');
     wrap.className = 'conv-wrap';
-    this.el.innerHTML = `<div class="conv-title">${c.title} <small>${c.model}</small></div>`;
+    this.el.innerHTML = `<div class="conv-title">${c.title}</div>`;
     this.el.appendChild(wrap);
     wrap.appendChild(this.buildFace());
 
@@ -153,7 +153,7 @@ export class ConverterPanel {
     if (c.kind === 'dc') {
       f.innerHTML = `
         <div class="face-dcs">
-          <div class="dcs-brand">ABB</div><div class="dcs-model">DCS 800</div>
+          <div class="dcs-model">ТП</div>
           <div class="dcs-panel">
             <div class="lcd"><div class="lcd-l1"></div><div class="lcd-l2"></div><div class="lcd-l3"></div></div>
             <div class="keys"><span>▲</span><span>▼</span><span>◀</span><span>▶</span></div>
@@ -169,14 +169,14 @@ export class ConverterPanel {
             <div class="keys"><span>◁</span><span>▲</span><span>▷</span><span>◀</span><span>▼</span><span>▶</span></div>
             <div class="keys2"><span class="k-stop">Stop</span><span class="k-lr">Loc/Rem</span><span class="k-start">Start</span></div>
           </div>
-          <div class="acs-brand">ABB</div>
+          <div class="acs-brand">ПЧ</div>
           <div class="acs-warn">⚠</div>
         </div>`;
     } else {
       f.innerHTML = `
         <div class="face-pst">
           <div class="pst-terms">${'<i></i>'.repeat(12)}</div>
-          <div class="pst-brand">ABB <span>PST30-600-70</span></div>
+          <div class="pst-brand">ТПН</div>
           <div class="pst-leds"><span data-led="on">Power on</span><span data-led="fault">Fault</span><span data-led="prot">Protection</span></div>
           <div class="pst-panel">
             <div class="lcd"><div class="lcd-l1"></div><div class="lcd-l2"></div></div>

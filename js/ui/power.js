@@ -20,7 +20,6 @@ export class PowerPanel {
         <div class="brk-label">${x.label.replace(/ (~|=)/, '<br>$1')}</div>
         <div class="brk-body poles-${x.poles}">
           ${Array.from({ length: x.poles }).map(() => `<div class="pole"><div class="lever"></div></div>`).join('')}
-          <div class="brk-brand">ABB</div>
         </div>
       </div>`;
     this.topEl.innerHTML = `

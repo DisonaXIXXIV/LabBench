@@ -212,7 +212,7 @@ class App {
     this.gauges = {};
     const defs = Object.fromEntries(this.bench.meters.map(m => [m.id, m]));
     const layout = this.bench.metersLayout;
-    // анализатор сети ANR96: справа от стрелочных приборов (ДПТ) или сверху рядом с кнопками вводов (АД)
+    // анализатор сети: справа от стрелочных приборов (ДПТ) или сверху рядом с кнопками вводов (АД)
     const pwDef = this.bench.meters.find(m => m.kind === 'PW');
     if (pwDef) {
       const g = new PowerAnalyzer(pwDef);

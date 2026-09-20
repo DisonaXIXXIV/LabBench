@@ -6,7 +6,7 @@
   --panel: #e9ebed;
   --ink: #1d2126;
   --muted: #5b6672;
-  --abb-red: #ff000f;
+  --accent-red: #ff000f;
   --ok: #1e9e3e;
   --warn: #d98a00;
   --err: #d0201f;
@@ -22,11 +22,10 @@ button { font: inherit; cursor: pointer; }
 /* ---------- шапка ---------- */
 .app-header {
   display: flex; align-items: center; gap: 24px; padding: 8px 18px;
-  background: #1a1d22; color: #eee; border-bottom: 3px solid var(--abb-red);
+  background: #1a1d22; color: #eee; border-bottom: 3px solid var(--accent-red);
   position: sticky; top: 0; z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
-.brand-abb { font-weight: 900; font-size: 22px; color: var(--abb-red); letter-spacing: 1px; font-family: Arial Black, Arial, sans-serif; }
 .app-header h1 { font-size: 15px; font-weight: 500; margin: 0; }
 .bench-tabs { display: flex; gap: 6px; }
 .bench-tabs button {
@@ -34,14 +33,14 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1;
 }
 .bench-tabs button small { font-size: 10px; color: #888; }
-.bench-tabs button.active { background: #3a4048; color: #fff; border-color: var(--abb-red); }
+.bench-tabs button.active { background: #3a4048; color: #fff; border-color: var(--accent-red); }
 .toolbar { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .tb { background: #3a4048; color: #eee; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; }
 .tb:hover { background: #4a515a; }
 .file-label { display: inline-block; }
 .wire-colors { display: flex; gap: 4px; margin-left: 10px; padding: 4px 6px; background: #2e333a; border-radius: 4px; }
 .wc { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #555; padding: 0; }
-.wc.active { border-color: #fff; box-shadow: 0 0 0 2px var(--abb-red); }
+.wc.active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent-red); }
 
 /* ---------- компоновка шкафов ---------- */
 /* Ряд шкафов имеет естественную ширину (около 1900 px); при более узком окне
@@ -147,7 +146,6 @@ button { font: inherit; cursor: pointer; }
 .cab-power .conv-stack { flex: 1; }
 .conv-unit { background: var(--panel); border: 1px solid var(--cab-edge); border-radius: 3px; padding: 6px; }
 .conv-title { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 2px 6px; }
-.conv-title small { text-transform: none; letter-spacing: 0; color: #7b8590; }
 
 /* шкаф с вводами, приборами и наборным полем */
 .inputs-row { display: flex; gap: 12px; align-items: flex-start; }
@@ -175,14 +173,13 @@ button { font: inherit; cursor: pointer; }
   display: flex; gap: 1px; background: #f2f2ee; border: 1px solid #777; border-radius: 3px; padding: 6px 3px 12px; position: relative;
   box-shadow: 0 2px 3px rgba(0,0,0,.35);
 }
-.brk-brand { position: absolute; left: 4px; top: 1px; font-size: 6px; font-weight: 900; color: var(--abb-red); font-family: Arial Black, Arial; }
 .pole { width: 17px; height: 46px; background: #eaeae4; border: 1px solid #b5b5ad; border-radius: 2px; position: relative; }
 .lever {
   position: absolute; left: 3px; width: 9px; height: 16px; background: linear-gradient(#333, #111); border-radius: 2px;
   bottom: 4px; transition: bottom .15s;
 }
 .brk.on .lever { bottom: 24px; background: linear-gradient(#444, #1a1a1a); }
-.brk.on .pole::after { content: ""; position: absolute; left: 4px; bottom: 6px; width: 7px; height: 4px; background: var(--abb-red); }
+.brk.on .pole::after { content: ""; position: absolute; left: 4px; bottom: 6px; width: 7px; height: 4px; background: var(--accent-red); }
 .brk.live .brk-label { color: #0a6e1e; }
 .din-rail.sep { margin-left: auto; }
 
@@ -240,8 +237,7 @@ button { font: inherit; cursor: pointer; }
 
 .gauge.pw { width: 124px; }
 .pw-frame { background: #202226; border-radius: 4px; border: 2px solid #000; height: 124px; padding: 5px 7px; color: #ccc; position: relative; }
-.pw-brand { font-size: 8px; font-weight: 900; color: var(--abb-red); font-family: Arial Black, Arial; }
-.pw-brand span { color: #aaa; font-family: Arial; font-weight: 400; margin-left: 4px; }
+.pw-brand { font-size: 8px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: .04em; }
 .pw-lcd { background: #0d1a10; border: 1px solid #000; margin-top: 4px; padding: 3px 5px; height: 62px; font-family: Consolas, monospace; color: #1a3a20; }
 .pw.on .pw-lcd { color: #6df08a; background: #102416; text-shadow: 0 0 4px #3d9; }
 .pw-row { display: flex; align-items: baseline; gap: 4px; font-size: 11px; line-height: 1.55; }
@@ -269,7 +265,7 @@ button { font: inherit; cursor: pointer; }
   position: absolute; left: 50%; top: 50%; font-size: 9px; font-weight: 700; color: #333;
   transform: translate(-50%, -50%) rotate(var(--deg)) translateY(-24px) rotate(calc(-1 * var(--deg)));
 }
-.sel-labels span.active { color: var(--abb-red); }
+.sel-labels span.active { color: var(--accent-red); }
 .sel-knob {
   position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -12px 0 0 -15px; border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, #444, #111); border: 2px solid #000; cursor: pointer;
@@ -304,7 +300,6 @@ button { font: inherit; cursor: pointer; }
   width: 210px; height: 236px; background: linear-gradient(160deg, #f0efe8, #d9d8d0); border: 2px solid #9a9a92; border-radius: 6px 6px 3px 3px;
   position: relative; overflow: hidden;
 }
-.dcs-brand { position: absolute; left: 12px; top: 10px; font-size: 14px; font-weight: 900; color: var(--abb-red); font-family: Arial Black, Arial; }
 .dcs-model { position: absolute; right: 12px; top: 12px; font-size: 11px; font-weight: 700; color: #333; }
 .dcs-panel { position: absolute; left: 22px; top: 40px; width: 92px; background: #e5e5df; border: 1px solid #888; border-radius: 4px; padding: 5px; }
 .dcs-curve { position: absolute; left: -20px; bottom: -70px; width: 260px; height: 120px; border-top: 2px solid #bfbfb7; border-radius: 50%; }
@@ -320,7 +315,7 @@ button { font: inherit; cursor: pointer; }
 }
 .face-acs::before { content: ""; position: absolute; left: 12px; right: 12px; top: 8px; bottom: 30px; background: #ececea; border-radius: 40px 40px 8px 8px; }
 .acs-panel { position: absolute; left: 22px; top: 26px; width: 88px; background: #f4f4f2; border: 1px solid #aaa; border-radius: 6px; padding: 5px; }
-.acs-brand { position: absolute; left: 0; right: 0; top: 165px; text-align: center; font-size: 16px; font-weight: 900; color: var(--abb-red); font-family: Arial Black, Arial; }
+.acs-brand { position: absolute; left: 0; right: 0; top: 165px; text-align: center; font-size: 13px; font-weight: 700; color: #555; }
 .acs-warn { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; color: #f5c400; font-size: 12px; }
 
 .face-pst {
@@ -328,8 +323,7 @@ button { font: inherit; cursor: pointer; }
 }
 .pst-terms { display: flex; gap: 2px; padding: 4px 6px; background: #1a1c20; }
 .pst-terms i { flex: 1; height: 10px; background: #5e6a3a; border: 1px solid #333; }
-.pst-brand { padding: 4px 8px; font-size: 10px; font-weight: 900; color: var(--abb-red); font-family: Arial Black, Arial; }
-.pst-brand span { color: #bbb; font-family: Arial; font-weight: 400; font-size: 8px; }
+.pst-brand { padding: 4px 8px; font-size: 10px; font-weight: 700; color: #bbb; }
 .pst-leds { display: flex; gap: 6px; padding: 0 8px; font-size: 6.5px; color: #999; }
 .pst-leds span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #333; margin-right: 3px; border: 1px solid #000; }
 .pst-leds span.lit::before { background: #3f3; box-shadow: 0 0 5px #3f3; }
@@ -357,7 +351,7 @@ button { font: inherit; cursor: pointer; }
 .field-door.door-open .fd-handle { opacity: 0; }
 .fd-label {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: linear-gradient(#ff2a36, var(--abb-red)); color: #fff; padding: 8px 18px; border-radius: 5px; border: 2px solid #b0000a;
+  background: linear-gradient(#ff2a36, var(--accent-red)); color: #fff; padding: 8px 18px; border-radius: 5px; border: 2px solid #b0000a;
   box-shadow: 0 3px 0 #8a0008, 0 5px 12px rgba(0,0,0,.45); white-space: nowrap; transition: transform .1s, box-shadow .1s;
 }
 .field-door:hover .fd-label { background: linear-gradient(#ff4552, #e8000e); }

@@ -104,19 +104,19 @@ function fieldArt() {
     inPins(inB) + a.leads(xs(inB), P1 + 24, P1 + 46) + a.box(x, P1 + 46, w, 80, title, sub) +
     a.leads(xs(outB), P1 + 126, P1B - 24) + outPins(outB);
   // ТПН с байпасом K4
-  s += dev(tpnIn, tpnOut, 680, 88, 'ТПН', 'PST30');
+  s += dev(tpnIn, tpnOut, 680, 88, 'ТПН');
   s += inPins(tpnByp) + a.leads(xs(tpnByp), P1 + 24, P1B - 24) + outPins(tpnK4);
   s += a.dashedBox(778, P1 + 46, 80, 80) + a.text(818, P1 + 40, 'байпас K4', 'lbl-tiny');
   for (const x of xs(tpnByp)) s += `<rect x="${x - 6}" y="${P1 + 74}" width="12" height="24" class="art-blank"/>` + a.line(x, P1 + 74, x + 9, P1 + 92);
   s += a.line(768, P1 + 86, 778, P1 + 86, 'art-line art-dashed');
   // ТП
-  s += dev(tpIn, tpOut, 860, 90, 'ТП', 'DCS800');
+  s += dev(tpIn, tpOut, 860, 90, 'ТП');
   // PW
   s += dev(pwIn, pwOut, 970, 90, 'Ваттметр', 'PW');
   // датчики
   s += inPins(snIn) + a.leads(xs(snIn), P1 + 24, P1B - 24) + a.sensors(xs(snIn), P1 + 52, P1 + 126) + outPins(snOut);
   // ПЧ с тормозным резистором
-  s += dev(fcIn, fcOut, 1190, 90, 'ПЧ', 'ACS880');
+  s += dev(fcIn, fcOut, 1190, 90, 'ПЧ');
   s += a.line(1280, P1 + 80, 1294, P1 + 80) + a.line(1294, P1 + 80, 1294, P1B - 24);
   s += a.line(1280, P1 + 92, 1318, P1 + 92) + a.line(1318, P1 + 92, 1318, P1B - 24) + outPins(fcBr);
 
@@ -211,7 +211,7 @@ function fieldArt() {
 const names = {
   in1: 'Ввод 1 ~380 В', in2: 'Ввод 2 ~380 В', ctrl: 'Цепь управления',
   km1: 'Контакты KM1', km2: 'Контакты KM2', km3: 'Контакты KM3',
-  tpn: 'ТПН PST30', tp: 'ТП DCS800', fc: 'ПЧ ACS880', pw: 'Ваттметр PW', sens: 'Датчики ДН/ДТ',
+  tpn: 'ТПН', tp: 'ТП', fc: 'ПЧ', pw: 'Ваттметр PW', sens: 'Датчики ДН/ДТ',
   m3: 'М3 статор', m3r: 'М3 ротор', m4: 'М4 статор', r1: 'Резистор R1',
   ra1: 'Резистор 4,2 Ом', ra2: 'Резистор 4,2 Ом', ra3: 'Резистор 4,2 Ом',
   rb1: 'Резистор 1,2 Ом', rb2: 'Резистор 1,2 Ом', rb3: 'Резистор 1,2 Ом',
@@ -258,14 +258,14 @@ export const acBench = {
       controls: ['setup', 'mode', 'polarity', 'ref', 'on', 'off'],
     },
     {
-      id: 'tp', kind: 'dc', title: 'Тиристорный преобразователь', model: 'ABB DCS800', cabinet: 'Б4',
+      id: 'tp', kind: 'dc', title: 'Тиристорный преобразователь', cabinet: 'Б4',
       in: { A: 'tp.in.A', B: 'tp.in.B', C: 'tp.in.C' },
       out: { '+': 'tp.out.+', '−': 'tp.out.−' },
       modes: [{ id: 'U', label: 'U', unit: 'В', max: 240 }],
       controls: ['ref', 'on', 'off'],
     },
     {
-      id: 'tpn', kind: 'ss', title: 'Тиристорный преобразователь напряжения', model: 'ABB PST30', cabinet: 'Б4',
+      id: 'tpn', kind: 'ss', title: 'Тиристорный преобразователь напряжения', cabinet: 'Б4',
       in: { A: 'tpn.in.A', B: 'tpn.in.B', C: 'tpn.in.C' },
       out: { U: 'tpn.out.U', V: 'tpn.out.V', W: 'tpn.out.W' },
       bypass: [['tpn.byp.B1', 'tpn.k4.1'], ['tpn.byp.B2', 'tpn.k4.2'], ['tpn.byp.B3', 'tpn.k4.3']],
@@ -282,28 +282,29 @@ export const acBench = {
       id: 'm3', kind: 'im-wound', title: 'М3 — АД с фазным ротором', tacho: true,
       windings: { stator: ['m3.A.1', 'm3.B.1', 'm3.C.1'], rotor: ['m3r.a.1', 'm3r.b.1', 'm3r.c.1'] },
       nominal: { speed: 1000, poles: 6, current: 20 },
-      // параметры для динамического торможения (постоянный ток от ТП в статоре):
-      // r1 — фаза статора, r2 — ротор (приведённый), xm — намагничивание, Ом; mk — тормозной максимум при Iэкв = Iном, Нм
-      im: { r1: 0.5, r2: 0.3, xm: 15, mk: 40 },
+      // параметры схемы замещения: r1 — фаза статора, r2 — ротор (приведённый), xm — намагничивание,
+      // xk — реактивное сопротивление КЗ, Ом; mcr — критический момент, Нм (sк = (r2 + Rдоб)/xk);
+      // mk — тормозной максимум при динамическом торможении и Iэкв = Iном, Нм
+      im: { r1: 0.5, r2: 0.3, xm: 15, xk: 2, mcr: 60, mk: 40 },
     },
     {
       id: 'm4', kind: 'im-cage', title: 'М4 — АД с к.з. ротором',
       windings: { stator: ['m4.A.1', 'm4.B.1', 'm4.C.1'], ends: ['m4.X', 'm4.Y', 'm4.Z'] },
       nominal: { speed: 1000, poles: 6, current: 20 },
-      im: { r1: 0.5, r2: 0.4, xm: 15, mk: 40 },
+      im: { r1: 0.5, r2: 0.4, xm: 15, xk: 2, mcr: 60, mk: 40 },
     },
   ],
 
   meters: [
-    { id: 'PV1', kind: 'V', model: 'VLM-1-400/96', min: 0, max: 400, ticks: 4, across: ['m3.A.1', 'm3.B.1'] },
-    { id: 'PV2', kind: 'V', model: 'VLM-1-400/96', min: 0, max: 400, ticks: 4, across: ['m3r.b.1', 'm3r.c.1'] },
-    { id: 'n', kind: 'n', model: 'М42607', min: -2, max: 2, mult: 1000, ticks: 4, unit: 'об/мин', source: 'speed' },
-    { id: 'PV3', kind: 'V', model: 'VLM-1-400/96', min: 0, max: 400, ticks: 4, across: ['m4.A.1', 'm4.B.1'] },
-    { id: 'PA1', kind: 'A', model: 'AMT1-A1-20/96', min: 0, max: 20, ticks: 4, series: { motor: 'm3', winding: 'stator' } },
-    { id: 'PA2', kind: 'A', model: 'AMT1-A1-30/96', min: 0, max: 30, ticks: 3, series: { motor: 'm3', winding: 'rotor' } },
-    { id: 'M', kind: 'M', model: 'М42607', min: -2, max: 2, mult: 40, ticks: 4, unit: 'Нм', source: 'torque' },
-    { id: 'PA3', kind: 'A', model: 'AMT1-A1-20/96', min: 0, max: 20, ticks: 4, series: { motor: 'm4', winding: 'stator' } },
-    { id: 'PW', kind: 'PW', model: 'ANR96', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
+    { id: 'PV1', kind: 'V', min: 0, max: 400, ticks: 4, across: ['m3.A.1', 'm3.B.1'] },
+    { id: 'PV2', kind: 'V', min: 0, max: 400, ticks: 4, across: ['m3r.b.1', 'm3r.c.1'] },
+    { id: 'n', kind: 'n', min: -2, max: 2, mult: 1000, ticks: 4, unit: 'об/мин', source: 'speed' },
+    { id: 'PV3', kind: 'V', min: 0, max: 400, ticks: 4, across: ['m4.A.1', 'm4.B.1'] },
+    { id: 'PA1', kind: 'A', min: 0, max: 20, ticks: 4, series: { motor: 'm3', winding: 'stator' } },
+    { id: 'PA2', kind: 'A', min: 0, max: 30, ticks: 3, series: { motor: 'm3', winding: 'rotor' } },
+    { id: 'M', kind: 'M', min: -2, max: 2, mult: 40, ticks: 4, unit: 'Нм', source: 'torque' },
+    { id: 'PA3', kind: 'A', min: 0, max: 20, ticks: 4, series: { motor: 'm4', winding: 'stator' } },
+    { id: 'PW', kind: 'PW', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
   ],
   metersLayout: { rows: [['PV1', 'PV2', 'n', 'PV3'], ['PA1', 'PA2', 'M', 'PA3']], pw: 'top' },
 

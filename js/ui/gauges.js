@@ -85,7 +85,7 @@ function fmtTick(v) {
   return s.replace('.', ',');
 }
 
-/** Анализатор сети ANR96: цифровые показания. */
+/** Анализатор сети: цифровые показания. */
 export class PowerAnalyzer {
   constructor(def) {
     this.def = def;
@@ -93,14 +93,14 @@ export class PowerAnalyzer {
     root.className = 'gauge pw';
     root.innerHTML = `
       <div class="pw-frame">
-        <div class="pw-brand">ABB <span>ANR96</span></div>
+        <div class="pw-brand">Анализатор сети</div>
         <div class="pw-lcd">
           <div class="pw-row"><span>U</span><b data-k="U">---</b><i>В</i></div>
           <div class="pw-row"><span>I</span><b data-k="I">---</b><i>А</i></div>
           <div class="pw-row"><span>P</span><b data-k="P">---</b><i>кВт</i></div>
         </div>
         <div class="pw-keys"><span>◀</span><span>▶</span><span>▲</span><span>▼</span><span class="ok">OK</span></div>
-        <div class="pw-sub">Network Analyzer</div>
+        <div class="pw-sub">U · I · P</div>
       </div>
       <div class="gauge-cap">PW</div>`;
     this.el = root;

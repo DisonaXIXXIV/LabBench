@@ -115,12 +115,12 @@ function fieldArt() {
     d += a.leads(xs(outB), P1 + 126, P1B - 24) + outB.map(n => a.text(n.x, P1B - 14, n.label, 'lbl-tiny')).join('') + a.pins(xs(outB), P1B - 8);
     return d;
   };
-  s += dev(tpIn, tpOut, 934, 100, 'ТП', 'DCS800');
+  s += dev(tpIn, tpOut, 934, 100, 'ТП');
   s += dev(pwIn, pwOut, 1054, 80, 'Ваттметр', 'PW');
   s += a.pins(xs(snIn), P1 + 8) + snIn.map(n => a.text(n.x, P1 + 22, n.label, 'lbl-tiny')).join('');
   s += a.leads(xs(snIn), P1 + 24, P1B - 24) + a.sensors(xs(snIn), P1 + 52, P1 + 126);
   s += snOut.map(n => a.text(n.x, P1B - 14, n.label, 'lbl-tiny')).join('') + a.pins(xs(snOut), P1B - 8);
-  s += dev(fcIn, fcOut, 1274, 80, 'ПЧ', 'ACS880');
+  s += dev(fcIn, fcOut, 1274, 80, 'ПЧ');
 
   // ---- табличка 3 (справа внизу): резисторы, М1, М2 ----
   const P3 = 472;
@@ -180,7 +180,7 @@ function fieldArt() {
 const names = {
   in1: 'Ввод 1 ~380 В', in2: 'Ввод 2 ~380 В', in3: 'Ввод 3 =240 В', ctrl: 'Цепь управления',
   km1: 'Контакты KM1', km2: 'Контакты KM2', km3: 'Контакты KM3',
-  tp: 'ТП DCS800', fc: 'ПЧ ACS880', pw: 'Ваттметр PW', sens: 'Датчики ДН/ДТ',
+  tp: 'ТП', fc: 'ПЧ', pw: 'Ваттметр PW', sens: 'Датчики ДН/ДТ',
   r1: 'Резистор 6,3 Ом', r2: 'Резистор 1,7 Ом', r3: 'Резистор 8,6 Ом',
   m1: 'М1 — ДПТ НВ', m2: 'М2 — СДПМ',
   ...Object.fromEntries(aux.map(g => [g.id, `Контакты ${g.label} (управление из шкафа А6, в модели не задействованы)`])),
@@ -216,7 +216,7 @@ export const dcBench = {
 
   converters: [
     {
-      id: 'tp', kind: 'dc', title: 'Тиристорный преобразователь', model: 'ABB DCS800', cabinet: 'А3',
+      id: 'tp', kind: 'dc', title: 'Тиристорный преобразователь', cabinet: 'А3',
       in: { A: 'tp.in.A', B: 'tp.in.B', C: 'tp.in.C' },
       out: { 'Я+': 'tp.out.Я+', 'Я−': 'tp.out.Я−', 'В+': 'tp.out.В+', 'В−': 'tp.out.В−' },
       modes: [
@@ -228,7 +228,7 @@ export const dcBench = {
       controls: ['setup', 'mode', 'polarity', 'ref', 'on', 'off'],
     },
     {
-      id: 'fc', kind: 'fc', title: 'Преобразователь частоты', model: 'ABB ACS880', cabinet: 'А1',
+      id: 'fc', kind: 'fc', title: 'Преобразователь частоты', cabinet: 'А1',
       in: { A: 'fc.in.A', B: 'fc.in.B', C: 'fc.in.C' },
       out: { U: 'fc.out.U', V: 'fc.out.V', W: 'fc.out.W' },
       modes: [
@@ -255,13 +255,13 @@ export const dcBench = {
   ],
 
   meters: [
-    { id: 'PV1', kind: 'V', model: 'VLM-2-250/96', min: 0, max: 250, ticks: 5, across: ['m1.В+.1', 'm1.В−.1'] },
-    { id: 'PV2', kind: 'V', model: 'М42607', min: -300, max: 300, ticks: 6, across: ['m1.Я+.1', 'm1.Я−.1'] },
-    { id: 'n', kind: 'n', model: 'М42607', min: -3, max: 3, mult: 1000, ticks: 6, unit: 'об/мин', source: 'speed' },
-    { id: 'PA1', kind: 'A', model: 'М4272', min: 0, max: 2.5, ticks: 5, series: { motor: 'm1', winding: 'field' } },
-    { id: 'PA2', kind: 'A', model: 'М42607', min: -50, max: 50, ticks: 10, series: { motor: 'm1', winding: 'arm' } },
-    { id: 'M', kind: 'M', model: 'М42607', min: -2, max: 2, mult: 20, ticks: 4, unit: 'Нм', source: 'torque' },
-    { id: 'PW', kind: 'PW', model: 'ANR96', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
+    { id: 'PV1', kind: 'V', min: 0, max: 250, ticks: 5, across: ['m1.В+.1', 'm1.В−.1'] },
+    { id: 'PV2', kind: 'V', min: -300, max: 300, ticks: 6, across: ['m1.Я+.1', 'm1.Я−.1'] },
+    { id: 'n', kind: 'n', min: -3, max: 3, mult: 1000, ticks: 6, unit: 'об/мин', source: 'speed' },
+    { id: 'PA1', kind: 'A', min: 0, max: 2.5, ticks: 5, series: { motor: 'm1', winding: 'field' } },
+    { id: 'PA2', kind: 'A', min: -50, max: 50, ticks: 10, series: { motor: 'm1', winding: 'arm' } },
+    { id: 'M', kind: 'M', min: -2, max: 2, mult: 20, ticks: 4, unit: 'Нм', source: 'torque' },
+    { id: 'PW', kind: 'PW', in: ['pw.in.A', 'pw.in.B', 'pw.in.C'] },
   ],
   metersLayout: { rows: [['PV1', 'PV2', 'n'], ['PA1', 'PA2', 'M']], pw: 'right' },
 
