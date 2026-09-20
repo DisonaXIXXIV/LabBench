@@ -536,7 +536,7 @@ export class QuasiStaticModel extends DriveModel {
     // ток якоря ДПТ в контуре скорости ТП — по моменту, который нужен валу от этой машины
     if (stiff?.kind === 'tp' && dcm) {
       const kphi = currents[dcm.id].kphi;
-      this.loopI = kphi > 0.05 ? clamp(-passive(w) / kphi, 60) : 0;
+      this.loopI = kphi > 0.05 ? clamp(-shaftTorque(w) / kphi, 60) : 0;
     } else this.loopI = 0;
 
     // показание датчика момента: момент в муфте = момент машины B (нагрузочной, второй в агрегате);

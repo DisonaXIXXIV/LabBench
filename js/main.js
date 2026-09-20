@@ -12,6 +12,9 @@ import { ConverterPanel } from './ui/converters.js';
 import { MotorsPanel } from './ui/motors.js';
 import { FieldControls } from './ui/fieldctl.js';
 import { Log } from './ui/log.js';
+import { PointsPanel } from './ui/points.js';
+import { Scope } from './ui/scope.js';
+import { PcMonitor } from './ui/pc.js';
 import { MobileLayout } from './ui/mobile.js';
 import { VERSION } from './version.js';
 
@@ -38,6 +41,7 @@ class App {
     $('#version').textContent = `v. ${VERSION}`;
     this.buildToolbar();
     this.mobile = new MobileLayout(this);
+    this.pc = new PcMonitor(this);
     this.mount(this.benchId);
     this.setupFit();
     this.last = performance.now();
@@ -113,6 +117,7 @@ class App {
     else { $('#toolbar').appendChild(wc); $('.brand').appendChild(ver); }
     this.toggleMenu(false);
     this.syncField();
+    this.pc?.apply();
     this.fit?.();
   }
 
@@ -151,6 +156,10 @@ class App {
     };
     this.model = createModel(bench);
     this.rt = new BenchRuntime(bench, this.state, this.model, this.log);
+    this.points = new PointsPanel($('#pc-points'), bench, this.rt);
+    this.scope = new Scope($('#pc-scope'), bench, this.rt);
+    this.rt.onEvent = ev => this.points.onEvent(ev);
+    this.pc.apply();
 
     this.power = new PowerPanel($('#power-top'), $('#power-inputs'), bench, this.rt);
     this.buildMeters();
@@ -295,6 +304,8 @@ class App {
     this.field.update(view);
     this.fieldCtl.update(view);
     this.motors.update(view, dt);
+    this.points.update(view, dt);
+    this.scope.update(view, dt);
     this.mobile.update(view, dt);
     // автосохранение положений органов управления (нечасто)
     this.saveAcc = (this.saveAcc || 0) + dt;

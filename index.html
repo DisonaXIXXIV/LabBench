@@ -43,8 +43,14 @@
       <div class="cab-window"></div>
       <div class="pc-monitor">
         <div class="pc-screen">
-          <div class="pc-bar"><span>Диагностика стенда</span><button id="btn-log-clear" class="mini">очистить</button></div>
-          <div id="log" class="log"></div>
+          <div class="pc-bar">
+            <span class="pc-tabs"><button data-tab="log" class="active">Диагностика</button><button data-tab="points">Таблица</button><button data-tab="scope">Осциллограф</button></span>
+            <button id="btn-log-clear" class="mini">очистить</button>
+            <button id="btn-pc-big" class="mini" title="Развернуть окно крупно под стендом">⤢ крупно</button>
+          </div>
+          <div id="log" class="log pc-tab" data-tab="log"></div>
+          <div id="pc-points" class="pc-tab pc-app" data-tab="points" hidden></div>
+          <div id="pc-scope" class="pc-tab pc-app" data-tab="scope" hidden></div>
         </div>
         <div class="pc-stand"></div>
       </div>
@@ -88,6 +94,17 @@
     <div class="base base-motors">
       <div class="base-title">Двухмашинный агрегат</div>
       <div id="motors"></div>
+    </div>
+  </section>
+
+  <!-- окно ПК крупно (таблица точек / осциллограф) -->
+  <section class="cab-row cab-row-pc" id="pc-big-row">
+    <div class="cabinet cabinet-pc-big">
+      <div class="cabinet-title">
+        <span id="pc-big-title">Монитор ПК</span>
+        <button id="btn-pc-big-close" class="door-btn" title="Свернуть в монитор">Свернуть ▴</button>
+      </div>
+      <div id="pc-big" class="pc-big"></div>
     </div>
   </section>
 

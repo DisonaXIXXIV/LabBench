@@ -16,6 +16,7 @@ export class BenchRuntime {
     this.probes = probeBranches(bench);
     this.time = 0; // время модели, с
     this.onSubstep = null; // (t, model, dt) — вызывается после каждого подшага (запись осциллографа)
+    this.onEvent = null;   // (ev) — события модели уровня warn/info (например, выбег)
     this.rt = {
       contactors: Object.fromEntries(bench.contactors.map(k => [k.id, false])),
       timers: Object.fromEntries(bench.contactors.map(k => [k.id, 0])),
@@ -319,13 +320,15 @@ export class BenchRuntime {
     let sim = null;
     const seen = new Set();
     const events = [];
-    for (let left = dt; left > 1e-9; left -= SUBSTEP) {
-      ctx.dt = Math.min(SUBSTEP, left);
+    let left = dt;
+    do { // хотя бы один шаг даже при dt = 0
+      ctx.dt = Math.min(SUBSTEP, Math.max(0, left));
       sim = this.model.step(ctx);
       this.time += ctx.dt;
       for (const ev of sim.events) { const key = ev.level + ev.text; if (!seen.has(key)) { seen.add(key); events.push(ev); } }
       this.onSubstep?.(this.time, this.model, ctx.dt);
-    }
+      left -= SUBSTEP;
+    } while (left > 1e-9);
     sim.events = events;
 
     // 6. защиты по результатам модели
@@ -340,7 +343,7 @@ export class BenchRuntime {
         // авария преобразователя: останов, на дисплее — код, сброс кнопкой ВЫКЛ.
         const r = rt.conv[ev.dev];
         if (r && r.running) { r.running = false; r.fault = ev.fault; s.conv[ev.dev].on = false; this.log.error(ev.text); }
-      } else this.log.push(ev.level, ev.text);
+      } else { this.log.push(ev.level, ev.text); this.onEvent?.(ev); }
     }
     if (rt.tripFlash > 0) rt.tripFlash -= dt;
 

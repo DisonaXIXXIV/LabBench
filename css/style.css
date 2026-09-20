@@ -135,6 +135,71 @@ button { font: inherit; cursor: pointer; }
 .pc-bar .mini { color: #cfd3d8; border-color: #666; }
 /* contain: size — иначе содержимое журнала раздувает шкаф ПК и весь ряд по вертикали */
 .pc-screen .log { flex: 1; height: auto; min-height: 0; contain: size; border: none; border-radius: 0; }
+.pc-tabs { display: flex; gap: 2px; }
+.pc-tabs button { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; background: none; border: none; color: #9aa3ad; padding: 2px 6px; border-radius: 3px; }
+.pc-tabs button.active { background: #3d424a; color: #fff; }
+.pc-bar .mini { margin-left: 0; }
+.pc-bar #btn-log-clear { margin-left: auto; }
+.pc-bar #btn-pc-big { margin-left: auto; }
+.pc-tab[hidden] { display: none !important; }
+.pc-app { flex: 1; min-height: 0; contain: size; display: flex; flex-direction: column; background: #f7f8f9; color: #223; font-size: 11px; overflow: auto; }
+.pc-screen.big-out::after { content: "окно развёрнуто под стендом"; flex: 1; display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 11px; }
+
+/* окно ПК крупно под стендом */
+.cab-row-pc { display: none; scroll-margin-top: 64px; }
+.cab-row-pc.open { display: flex; }
+.cabinet-pc-big { flex: 1; min-width: 0; }
+.pc-big { background: #f7f8f9; border: 1px solid var(--cab-edge); border-radius: 3px; min-height: 420px; display: flex; flex-direction: column; }
+.pc-big .pc-app { contain: none; height: auto; min-height: 420px; font-size: 12px; }
+
+/* таблица точек и секундомер */
+.pt-bar, .sc-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 4px 6px; border-bottom: 1px solid #dfe3e7; background: #eef0f2; }
+.pt-bar .mini, .sc-bar .mini { margin-left: 0; color: #334; border-color: #b8bec5; background: #fff; cursor: pointer; }
+.pt-bar label, .sc-bar label { display: inline-flex; align-items: center; gap: 4px; color: #556; }
+.pt-bar select, .sc-bar select { font-size: 10px; max-width: 110px; }
+.pt-spacer { flex: 1; }
+.pt-sw b { font-family: Consolas, monospace; font-size: 13px; min-width: 40px; display: inline-block; text-align: right; }
+.sw-run .pt-sw b { color: #157a2c; }
+.pt-coast { color: #1a4f8a; }
+.pt-body { display: flex; flex: 1; min-height: 0; gap: 6px; padding: 4px; }
+.pt-table-wrap { flex: 1; min-width: 0; overflow: auto; }
+.pt-table { border-collapse: collapse; white-space: nowrap; }
+.pt-table th, .pt-table td { border: 1px solid #dfe3e7; padding: 2px 5px; text-align: right; font-family: Consolas, monospace; }
+.pt-table th { background: #e4e8ec; position: sticky; top: 0; font-family: inherit; font-weight: 600; }
+.pt-table td:nth-child(2) { font-family: inherit; }
+.pt-table .pt-del { margin: 0; padding: 0 4px; color: var(--err); }
+.pt-chart { flex: 0 0 320px; height: 200px; background: #fff; border: 1px solid #dfe3e7; align-self: flex-start; }
+.pt-grid { stroke: #e4e8ec; } .pt-axis { stroke: #8a95a3; } .pt-tick { font-size: 8px; fill: #667; } .pt-lbl { font-size: 9px; fill: #334; }
+.pt-line { fill: none; stroke: #1f5fd0; stroke-width: 1.2; } .pt-dot { fill: #d02020; } .pt-empty { font-size: 11px; fill: #99a; }
+.pc-screen .pt-chart { display: none; }
+
+/* осциллограф */
+.sc-body { display: flex; flex: 1; min-height: 0; }
+.sc-plot { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #0d1a10; }
+.sc-canvas { display: block; width: 100%; height: 440px; cursor: crosshair; }
+.pc-screen .sc-canvas { height: 150px; }
+.sc-pos { width: 100%; margin: 0; height: 12px; }
+.sc-side { flex: 0 0 300px; overflow: auto; max-height: 452px; border-left: 1px solid #dfe3e7; padding: 4px; font-size: 10.5px; }
+.pc-screen .sc-side { flex-basis: 100%; border-left: none; border-top: 1px solid #dfe3e7; max-height: 45%; }
+.pc-screen .sc-body { flex-direction: column; }
+.sc-ch { display: grid; grid-template-columns: 1fr auto; gap: 1px 6px; padding: 2px 3px; border-radius: 3px; color: #667; }
+.sc-ch.on { color: #112; }
+.sc-ch.sel { background: #e4e8ec; }
+.sc-ch label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.sc-ch i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; border: 1px solid #333; }
+.sc-ch-name { cursor: pointer; }
+.sc-ch-val { font-family: Consolas, monospace; text-align: right; }
+.sc-ch-ctl { grid-column: 1 / -1; display: none; gap: 3px; align-items: center; padding-left: 16px; }
+.sc-ch.on .sc-ch-ctl { display: flex; }
+.sc-ch-ctl input { width: 58px; font-size: 10px; font-family: Consolas, monospace; }
+.sc-ch-ctl small { color: #778; }
+.sc-math summary { cursor: pointer; font-weight: 600; margin: 6px 0 2px; }
+.sc-m { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; padding: 3px; border-bottom: 1px dashed #dfe3e7; }
+.sc-m input, .sc-m select { font-size: 10px; }
+.sc-m-name { width: 56px; } .sc-m-k, .sc-m-b0, .sc-m-win { width: 48px; }
+.sc-status { font-family: Consolas, monospace; color: #334; }
+.recording .sc-status { color: #d02020; }
+.sc-bar .file-label { padding: 1px 6px; }
 .pc-stand { width: 60px; height: 10px; background: linear-gradient(#3a3d42, #202226); border-radius: 0 0 4px 4px; }
 .pc-desk { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
 .pc-keyboard {
@@ -303,6 +368,19 @@ button { font: inherit; cursor: pointer; }
 .push.green .push-btn { background: radial-gradient(circle at 40% 35%, #6fdc7f, #178a2b); }
 .push.red .push-btn { background: radial-gradient(circle at 40% 35%, #ff6a6a, #9e0f0f); }
 
+/* пульт параметров преобразователя */
+.conv-params { margin-top: 6px; background: var(--panel); border: 1px solid var(--cab-edge); border-radius: 3px; font-size: 10px; padding: 2px 6px; }
+.conv-params summary { cursor: pointer; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: #334; }
+.conv-params .cp-state { font-weight: 400; text-transform: none; color: var(--muted); letter-spacing: 0; }
+.conv-params table { border-collapse: collapse; margin: 4px 0; }
+.conv-params td { padding: 2px 4px; vertical-align: middle; }
+.conv-params .cp-id { font-family: Consolas, monospace; font-weight: 700; }
+.conv-params .cp-label { color: #334; max-width: 190px; }
+.conv-params input { width: 58px; font-size: 11px; font-family: Consolas, monospace; padding: 1px 3px; }
+.conv-params .cp-unit, .conv-params .cp-def { color: var(--muted); }
+.conv-params .cp-note { color: var(--muted); font-size: 9px; padding-bottom: 2px; }
+.conv-params.inactive table { opacity: .55; }
+
 .lcd { background: #b9c5a8; border: 1px solid #333; font-family: Consolas, monospace; color: #1b2a17; padding: 3px 5px; min-height: 42px; }
 .lcd > div { font-size: 9.5px; line-height: 1.35; white-space: nowrap; overflow: hidden; }
 .powered .lcd { background: #cfe0b8; }
@@ -464,6 +542,9 @@ button { font: inherit; cursor: pointer; }
 .field-controls { display: flex; gap: 18px; align-items: flex-end; padding: 6px 8px 2px; background: var(--panel); border: 1px solid var(--cab-edge); border-radius: 3px; }
 .fc-group { display: flex; gap: 14px; align-items: flex-end; }
 .km-lamps { margin-left: auto; gap: 10px; }
+.km-manual { gap: 8px; }
+.pb-man { background: radial-gradient(circle at 40% 35%, #fff, #bbb); }
+.pb-man.lit .lamp { background: #ffb400; box-shadow: 0 0 8px #ffb400; }
 .km-lamp { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: #333; }
 .km-lamp .lamp { width: 12px; height: 12px; border-radius: 50%; background: #222; border: 1px solid #000; display: inline-block; }
 .km-lamp.lit .lamp { background: #ffb400; box-shadow: 0 0 8px #ffb400; }
@@ -617,6 +698,9 @@ button { font: inherit; cursor: pointer; }
 
   /* ПК: экран журнала во всю высоту */
   body.mobile .cab-pc .pc-screen { min-height: 0; height: calc(100dvh - 300px); min-height: 260px; }
+  body.mobile .cab-row-pc { display: none !important; }
+  body.mobile .pc-screen .pt-chart { display: block; flex-basis: auto; width: 100%; }
+  body.mobile .pt-body { flex-direction: column; }
   body.mobile .pc-desk { display: none; }
   body.mobile .log-item { padding: 6px 4px; font-size: 12.5px; }
 

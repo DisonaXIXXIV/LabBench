@@ -134,6 +134,36 @@ export class ConverterPanel {
     if (has('on')) col.appendChild(pushButton('ВКЛ.', 'green', () => this.rt.convCommand(c.id, true)).el);
     if (has('off')) col.appendChild(pushButton('ВЫКЛ.', 'red', () => this.rt.convCommand(c.id, false)).el);
     wrap.appendChild(col);
+    if (c.params?.length) this.el.appendChild(this.buildParams());
+  }
+
+  /** Пульт параметров: номера параметров с вводом значения; действуют в положении «Руч» тумблера «Настройка». */
+  buildParams() {
+    const c = this.conv;
+    const d = document.createElement('details');
+    d.className = 'conv-params';
+    d.innerHTML = `<summary>Параметры <span class="cp-state"></span></summary>
+      <table>${c.params.map(p => `
+        <tr data-p="${p.id}"><td class="cp-id">${p.id}</td><td class="cp-label">${p.label}</td>
+        <td><input type="number" min="${p.min}" max="${p.max}" step="${p.step}" value="${this.cs.params?.[p.id] ?? p.def}"></td><td class="cp-unit">${p.unit}</td>
+        <td class="cp-def" title="Заводское значение">(${String(p.def).replace('.', ',')})</td></tr>`).join('')}
+      </table>
+      <div class="cp-note">${c.controls.includes('setup') ? 'Значения действуют в положении «Руч.» тумблера «Настройка»; в «Фикс.» — заводские.' : 'Значения действуют сразу.'}</div>`;
+    for (const tr of d.querySelectorAll('tr')) {
+      const p = c.params.find(x => x.id === tr.dataset.p);
+      const inp = tr.querySelector('input');
+      inp.addEventListener('change', () => {
+        let v = parseFloat(inp.value);
+        if (!Number.isFinite(v)) v = p.def;
+        v = Math.max(p.min, Math.min(p.max, v));
+        inp.value = v;
+        this.cs.params ??= {};
+        this.cs.params[p.id] = v;
+        this.rt.log.info(`${c.title}: параметр ${p.id} = ${String(v).replace('.', ',')} ${p.unit}`);
+      });
+    }
+    this.paramsEl = d;
+    return d;
   }
 
   refFormat() {
@@ -212,6 +242,11 @@ export class ConverterPanel {
       this.leds.on.classList.toggle('lit', cv.powered);
       this.leds.fault.classList.toggle('lit', !!r.fault);
       this.leds.prot.classList.toggle('lit', false);
+    }
+    if (this.paramsEl) {
+      const man = !c.controls.includes('setup') || cv.setup === 'man';
+      this.paramsEl.classList.toggle('inactive', !man);
+      this.paramsEl.querySelector('.cp-state').textContent = man ? '' : '(не действуют — «Фикс.»)';
     }
     // синхронизация органов управления с состоянием (после загрузки)
     if (this.refPot && Math.abs(this.cs.ref - this._lastRef) > 1e-9) { this.refPot.set(this.cs.ref); this._lastRef = this.cs.ref; }
