@@ -87,7 +87,7 @@ export class ConverterPanel {
       this.fieldPot = potControl({
         label: 'ЗАДАНИЕ', value: this.cs.fieldRef,
         format: v => `${(v * c.fieldCol.max).toFixed(2)} А`,
-        onChange: v => { this.cs.fieldRef = v; this.rt.log.info(`${c.title}: задание тока возбуждения ${(v * c.fieldCol.max).toFixed(2)} А`); },
+        onChange: v => { this.cs.fieldRef = v; },
       });
       col.appendChild(this.fieldPot.el);
       col.appendChild(pushButton('ВКЛ.', 'green', () => this.rt.log.info(`${c.title}: кнопка левого столбца не задействована — возбуждение включается первым нажатием «ВКЛ.» справа`)).el);
