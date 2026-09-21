@@ -475,6 +475,7 @@ button { font: inherit; cursor: pointer; }
 .art .dev-box { fill: #fff; stroke: #222; stroke-width: 1.1; }
 .art .art-line { fill: none; stroke: #222; stroke-width: .9; }
 .art .art-dashed { stroke-dasharray: 3 3; }
+.art .art-dot { fill: #222; }
 .art .art-dashed-box { fill: none; stroke: #666; stroke-dasharray: 4 3; }
 .art .art-res, .art .art-blank { fill: #fff; stroke: #222; stroke-width: .9; }
 .art .art-coil { fill: #fff; stroke: #222; }

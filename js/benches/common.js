@@ -127,6 +127,20 @@ export const art = {
     return art.line(x1, y, x1, y1) + art.line(x2, y, x2, y1) +
       art.line(x1, y1, x1 + 6, y2) + art.line(x1 + 8, y2 + d * 2, x2, y2 + d * 2) + art.line(x2, y2 + d * 2, x2, y1);
   },
+  /** Один НО-контакт на четыре зажима: пары (x1,x2) и (x3,x4) объединены шинами
+   *  на среднем уровне, крайние отводы поднимаются к контакту сверху. */
+  contactBridge(x1, x2, x3, x4, y, up = true) {
+    const d = up ? -1 : 1;
+    const yb = y + d * 22, yt = y + d * 44, xc = (x2 + x3) / 2;
+    return art.line(x1, y, x1, yt) + art.line(x4, y, x4, yt) +
+      art.line(x2, y, x2, yb) + art.line(x1, yb, x2, yb) + art.dot(x1, yb) +
+      art.line(x3, y, x3, yb) + art.line(x3, yb, x4, yb) + art.dot(x4, yb) +
+      art.line(x1, yt, xc - 7, yt) + art.line(xc - 7, yt, xc + 7, yt + d * 9) + art.line(xc + 5, yt, x4, yt);
+  },
+  /** Точка соединения проводов. */
+  dot(x, y) {
+    return `<circle cx="${x}" cy="${y}" r="1.6" class="art-dot"/>`;
+  },
   /** Кнопка по ГОСТ 2.755: шляпка ⊓ на двойном штоке; подвижный контакт наклонный —
    *  у НО (Пуск) уходит вверх, у НЗ (Стоп) ложится вниз на зубчик неподвижного контакта. */
   button(x, y, label, nc = false) {

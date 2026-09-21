@@ -41,6 +41,7 @@ const pwOut = block('pw.out', ['U', 'V', 'W'], 1070, R2, 'top', PH3);
 const snOut = block('sens.out', ['U', 'V', 'W'], 1180, R2, 'top', PH3);
 const fcOut = block('fc.out', ['U', 'V', 'W'], 1290, R2, 'top', PH3);
 nodes.push(...ctrl, ...km.km1, ...km.km2, ...km.km3, ...tpOut, ...pwOut, ...snOut, ...fcOut);
+for (const id of Object.keys(km)) buses.push([`${id}.1`, `${id}.2`], [`${id}.3`, `${id}.4`]); // зажимы контакта попарно
 jumpers.push(['pw.in.A', 'pw.out.U'], ['pw.in.B', 'pw.out.V'], ['pw.in.C', 'pw.out.W']);
 jumpers.push(['sens.in.A', 'sens.out.U'], ['sens.in.B', 'sens.out.V'], ['sens.in.C', 'sens.out.W']);
 
@@ -98,13 +99,12 @@ function fieldArt() {
   s += a.coil(141, cy, 'KM1') + a.line(150, cy, 150, P1B - 11) + a.pin(150, P1B - 8);
   s += a.line(96, y2, 96, y3) + a.contactH(110, y3, 'KM1', true) + a.line(124, y3, 132, y3) + a.coil(141, y3, 'KM2');
   s += a.line(96, y3, 96, y4) + a.contactH(110, y4, 'KM2', true) + a.line(124, y4, 132, y4) + a.coil(141, y4, 'KM3');
-  // силовые контакты KM1..KM3: по два НО-контакта
+  // силовые контакты KM1..KM3: один НО-контакт, зажимы 1–2 и 3–4 попарно объединены
   for (const [id, b] of Object.entries(km)) {
     const [x1, x2, x3, x4] = xs(b);
     s += a.pins([x1, x2, x3, x4], P1B - 8);
-    s += a.text((x2 + x3) / 2, P1B - 66, id.toUpperCase(), 'lbl-big');
-    s += a.contactPair(x1, x2, P1B - 11, true) + a.contactPair(x3, x4, P1B - 11, true);
-    s += a.line(x1 + 8, P1B - 52, x3 + 4, P1B - 52, 'art-line art-dashed');
+    s += a.text((x2 + x3) / 2, P1B - 68, id.toUpperCase(), 'lbl-big');
+    s += a.contactBridge(x1, x2, x3, x4, P1B - 11, true);
   }
 
   // ---- табличка 1 (справа): ТП, ваттметр, датчики, ПЧ ----
@@ -209,9 +209,9 @@ export const dcBench = {
 
   ctrlChain: { X1: 'ctrl.X1', X2: 'ctrl.X2' },
   contactors: [
-    { id: 'km1', contacts: [['km1.1', 'km1.2'], ['km1.3', 'km1.4']] },
-    { id: 'km2', contacts: [['km2.1', 'km2.2'], ['km2.3', 'km2.4']], after: 'km1', timer: 't1' },
-    { id: 'km3', contacts: [['km3.1', 'km3.2'], ['km3.3', 'km3.4']], after: 'km2', timer: 't2' },
+    { id: 'km1', contacts: [['km1.1', 'km1.3']] },
+    { id: 'km2', contacts: [['km2.1', 'km2.3']], after: 'km1', timer: 't1' },
+    { id: 'km3', contacts: [['km3.1', 'km3.3']], after: 'km2', timer: 't2' },
   ],
 
   converters: [
