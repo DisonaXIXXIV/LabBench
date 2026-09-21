@@ -109,11 +109,16 @@ export const art = {
       `<rect x="${x - 7}" y="${y - 9}" width="14" height="18" class="art-coil"/>` +
       art.text(x, y - 13, label, 'lbl-small');
   },
-  /** НО-контакт (горизонтально) с подписью. */
+  /** НО-контакт (горизонтально) с подписью. timed — контакт реле времени по ГОСТ 2.755:
+   *  замедление при срабатывании, «парашют» (полукруг вверх) на двойном штоке над контактом. */
   contactH(x, y, label, timed = false) {
-    return art.line(x - 14, y, x - 4, y) + art.line(x - 4, y, x + 10, y - 9) + art.line(x + 8, y, x + 14, y) +
-      (timed ? `<path d="M${x} ${y + 4} a5 5 0 0 0 10 0" class="art-line"/>` : '') +
-      art.text(x, y - 13, label, 'lbl-small');
+    let s = art.line(x - 14, y, x - 4, y) + art.line(x - 4, y, x + 10, y - 9) + art.line(x + 8, y, x + 14, y);
+    if (timed) {
+      const xs = x + 2, top = y - 16;                      // ось штока и вершина парашюта
+      s += art.line(xs - 1.3, y - 4, xs - 1.3, top) + art.line(xs + 1.3, y - 4, xs + 1.3, top) +
+        `<path d="M${xs - 5} ${top + 5} a5 5 0 0 1 10 0" class="art-line"/>`;
+    }
+    return s + art.text(x, y - (timed ? 20 : 13), label, 'lbl-small');
   },
   /** Силовой контакт между двумя клеммниками (x1, x2) с отводами к кружкам на y. */
   contactPair(x1, x2, y, up = true) {
@@ -122,12 +127,23 @@ export const art = {
     return art.line(x1, y, x1, y1) + art.line(x2, y, x2, y1) +
       art.line(x1, y1, x1 + 6, y2) + art.line(x1 + 8, y2 + d * 2, x2, y2 + d * 2) + art.line(x2, y2 + d * 2, x2, y1);
   },
-  /** Кнопка (нормально разомкнутая — Пуск, замкнутая — Стоп). */
+  /** Кнопка по ГОСТ 2.755: шляпка ⊓ на двойном штоке; подвижный контакт наклонный —
+   *  у НО (Пуск) уходит вверх, у НЗ (Стоп) ложится вниз на зубчик неподвижного контакта. */
   button(x, y, label, nc = false) {
-    return art.line(x - 14, y, x - 5, y) + art.line(x + 5, y, x + 14, y) +
-      (nc ? art.line(x - 6, y + 3, x + 8, y - 6) : art.line(x - 6, y - 3, x + 8, y - 12)) +
-      art.line(x + 1, y - 8, x + 1, y - 16) + art.line(x - 4, y - 16, x + 6, y - 16) +
-      art.text(x, y - 20, label, 'lbl-small');
+    const xs = x + 1, capY = y - 14;                       // ось штока и высота шляпки
+    let s = art.line(x - 14, y, x - 5, y) + art.line(x + 5, y, x + 14, y);
+    if (nc) {
+      s += art.line(x + 5, y, x + 5, y + 5) +              // зубчик неподвижного контакта
+        art.line(x - 5, y, x + 11, y + 8);                 // подвижный контакт (замкнут)
+    } else {
+      s += art.line(x - 5, y, x + 8, y - 8);               // подвижный контакт (разомкнут)
+    }
+    const stemEnd = nc ? y + 3 : y - 4;                    // шток опирается на наклонный контакт
+    s += art.line(xs - 1.3, capY, xs - 1.3, stemEnd) + art.line(xs + 1.3, capY, xs + 1.3, stemEnd) +
+      art.line(xs - 5, capY, xs + 5, capY) +               // шляпка
+      art.line(xs - 5, capY, xs - 5, capY + 3) + art.line(xs + 5, capY, xs + 5, capY + 3) +
+      art.text(x, capY - 4, label, 'lbl-small');
+    return s;
   },
   /** Круг с буквой (прибор, двигатель). */
   circle(x, y, r, label, cls = 'art-circle') {
