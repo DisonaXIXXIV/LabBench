@@ -132,15 +132,17 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-direction: column; box-shadow: 0 3px 8px rgba(0,0,0,.5); overflow: hidden;
 }
 .pc-bar { display: flex; align-items: center; gap: 6px; background: #2b2e33; color: #cfd3d8; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 6px; }
-.pc-bar .mini { color: #cfd3d8; border-color: #666; }
+.pc-bar .mini { color: #cfd3d8; border-color: #666; text-transform: none; letter-spacing: 0; }
 /* contain: size — иначе содержимое журнала раздувает шкаф ПК и весь ряд по вертикали */
 .pc-screen .log { flex: 1; height: auto; min-height: 0; contain: size; border: none; border-radius: 0; }
-.pc-tabs { display: flex; gap: 2px; }
-.pc-tabs button { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; background: none; border: none; color: #9aa3ad; padding: 2px 6px; border-radius: 3px; }
+/* экран в шкафу узкий: вкладки ужимаются, кнопки справа — не переносятся и не уходят за край */
+.pc-tabs { display: flex; gap: 1px; }
+.pc-tabs button { font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; background: none; border: none; color: #9aa3ad; padding: 2px 4px; border-radius: 3px; white-space: nowrap; }
 .pc-tabs button.active { background: #3d424a; color: #fff; }
 .pc-bar .mini { margin-left: 0; }
 .pc-bar #btn-log-clear { margin-left: auto; }
-.pc-bar #btn-pc-big { margin-left: auto; }
+.pc-bar #btn-pc-big { margin-left: auto; flex-shrink: 0; font-size: 12px; line-height: 1; padding: 1px 5px; }
+.pc-bar #btn-log-clear { flex-shrink: 0; font-size: 12px; line-height: 1; padding: 1px 5px; }
 .pc-tab[hidden] { display: none !important; }
 .pc-app { flex: 1; min-height: 0; contain: size; display: flex; flex-direction: column; background: #f7f8f9; color: #223; font-size: 11px; overflow: auto; }
 .pc-screen.big-out::after { content: "окно развёрнуто под стендом"; flex: 1; display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 11px; }
