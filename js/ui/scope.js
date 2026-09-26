@@ -8,7 +8,11 @@
 // Мгновенные значения берутся у модели (model.sample(t)) после каждого её
 // подшага — runtime.onSubstep; см. sim/model.js.
 
-const COLORS = ['#f5c400', '#3cc8ff', '#ff5c5c', '#6fe07f', '#ff9c3c', '#d18bff', '#ffffff', '#8ef7e0', '#ff7ad9', '#a5c9ff'];
+const COLORS = ['#f5c400', '#3cc8ff', '#ff5c5c', '#6fe07f', '#ff9c3c', '#d18bff', '#ffffff', '#8ef7e0', '#ff7ad9', '#a5c9ff', '#4f7dff', '#c9b27a', '#a0a0a0', '#ffb3c8'];
+// датчики — постоянные цвета: токи по цветам фаз (A — жёлтый, B — зелёный, C — красный)
+const FIXED_COLORS = { 'sens.IA': '#f5c400', 'sens.IB': '#6fe07f', 'sens.IC': '#ff5c5c', 'sens.UAB': '#ff9c3c', 'sens.UBC': '#3cc8ff' };
+const RESERVED = new Set(Object.values(FIXED_COLORS));
+const FREE_COLORS = COLORS.filter(c => !RESERVED.has(c));
 const RATES = [1000, 2000, 5000];
 const LENGTHS = [2, 5, 10, 20];
 const fmt = (v, d = 2) => (Math.abs(v) >= 1000 ? Math.round(v) : Math.round(v * 10 ** d) / 10 ** d).toString().replace('.', ',');
@@ -93,6 +97,7 @@ export class Scope {
     this.selected = null; // выбранный канал (для шкалы/смещения)
     try { const raw = localStorage.getItem(KEY(bench.id)); if (raw) Object.assign(this.cfg, JSON.parse(raw)); } catch { /* пусто */ }
     if (!Object.keys(this.cfg.chans).length) this.applyPreset('LR7_W1', false);
+    else this.assignColors();
     this.build();
     runtime.onSubstep = (t, model, dt) => this.record(t, model, dt);
   }
@@ -166,7 +171,29 @@ export class Scope {
   }
 
   chanCfg(id) {
-    return this.cfg.chans[id] || (this.cfg.chans[id] = { on: false, scale: 1, pos: 0, color: COLORS[Object.keys(this.cfg.chans).length % COLORS.length] });
+    return this.cfg.chans[id] || (this.cfg.chans[id] = { on: false, scale: 1, pos: 0, color: this.freeColor(id) });
+  }
+
+  /** Цвет нового канала: у датчиков — постоянный, у остальных — первый не занятый другими каналами. */
+  freeColor(id) {
+    if (FIXED_COLORS[id]) return FIXED_COLORS[id];
+    const others = Object.entries(this.cfg.chans).filter(([k]) => k !== id).map(([, c]) => c);
+    const shown = new Set(others.filter(c => c.on).map(c => c.color));
+    // цветов меньше, чем каналов: не занятый включёнными каналами и реже всего встречающийся
+    const count = c => others.filter(o => o.color === c).length;
+    const pool = FREE_COLORS.filter(c => !shown.has(c));
+    return (pool.length ? pool : FREE_COLORS).reduce((best, c) => (count(c) < count(best) ? c : best));
+  }
+
+  /** Цвета после загрузки настроек: датчикам — постоянные, совпадающие у прочих каналов — заменить. */
+  assignColors() {
+    const seen = new Set();
+    for (const [id, c] of Object.entries(this.cfg.chans)) if (FIXED_COLORS[id]) { c.color = FIXED_COLORS[id]; seen.add(c.color); }
+    for (const [id, c] of Object.entries(this.cfg.chans)) {
+      if (FIXED_COLORS[id]) continue;
+      if (!c.color || RESERVED.has(c.color) || seen.has(c.color)) c.color = this.freeColor(id);
+      seen.add(c.color);
+    }
   }
 
   applyPreset(name, notify = true) {
@@ -174,8 +201,7 @@ export class Scope {
     if (!p) return;
     this.cfg.math = p.math.map(m => ({ ...m }));
     this.cfg.chans = {};
-    let i = 0;
-    for (const id of [...p.channels, ...p.math.map(m => m.name)]) this.cfg.chans[id] = { on: p.show.includes(id), scale: 1, pos: 0, color: COLORS[i++ % COLORS.length] };
+    for (const id of [...p.channels, ...p.math.map(m => m.name)]) this.cfg.chans[id] = { on: p.show.includes(id), scale: 1, pos: 0, color: this.freeColor(id) };
     this.cfg.xy = false;
     this.save();
     if (notify) { this.rt.log.info(`Осциллограф: загружен набор ${name} — ${p.title}`); this.computeMath(); this.autoscaleAll(); this.renderAll(); }
@@ -235,7 +261,7 @@ export class Scope {
     q('.sc-auto').addEventListener('click', () => { this.autoscaleAll(); this.renderChans(); this.draw(); });
     q('.sc-preset').addEventListener('change', e => { if (e.target.value) this.applyPreset(e.target.value); e.target.value = ''; });
     q('.sc-save').addEventListener('click', () => this.downloadCfg());
-    q('.sc-load').addEventListener('change', async e => { const f = e.target.files[0]; if (f) { try { Object.assign(this.cfg, JSON.parse(await f.text())); this.save(); this.computeMath(); this.renderAll(); } catch (err) { this.rt.log.error(`Осциллограф: ${err.message}`); } } e.target.value = ''; });
+    q('.sc-load').addEventListener('change', async e => { const f = e.target.files[0]; if (f) { try { Object.assign(this.cfg, JSON.parse(await f.text())); this.assignColors(); this.save(); this.computeMath(); this.renderAll(); } catch (err) { this.rt.log.error(`Осциллограф: ${err.message}`); } } e.target.value = ''; });
     q('.sc-csv').addEventListener('click', () => this.downloadCsv());
     q('.sc-pos').addEventListener('input', e => { this.cfg.tPos = +e.target.value / 1000; this.draw(); });
     q('.sc-math-add').addEventListener('click', () => { this.cfg.math.push({ name: `M${this.cfg.math.length + 1}`, op: 'mul', a: this.catalog[0].id, b: this.catalog[1].id, k: 1, b0: 0, win: 20 }); this.save(); this.renderAll(); });
@@ -271,7 +297,11 @@ export class Scope {
         <span class="sc-ch-val"></span>
         <span class="sc-ch-ctl"><input type="number" class="sc-scale" step="any" value="${cc.scale}" title="Единиц на деление">${c.unit ? `<small>${c.unit}/дел</small>` : '<small>/дел</small>'}
         <input type="number" class="sc-off" step="0.5" value="${cc.pos}" title="Смещение, делений"></span>`;
-      row.querySelector('input[type=checkbox]').addEventListener('change', e => { cc.on = e.target.checked; if (cc.on && this.block) this.autoscale(c.id); this.save(); this.renderChans(); this.draw(); });
+      row.querySelector('input[type=checkbox]').addEventListener('change', e => {
+        cc.on = e.target.checked;
+        // включённые каналы — разного цвета (цветов меньше, чем каналов)
+        if (cc.on && !FIXED_COLORS[c.id] && Object.entries(this.cfg.chans).some(([k, o]) => k !== c.id && o.on && o.color === cc.color)) cc.color = this.freeColor(c.id);
+        if (cc.on && this.block) this.autoscale(c.id); this.save(); this.renderChans(); this.draw(); });
       row.querySelector('.sc-scale').addEventListener('change', e => { cc.scale = Math.abs(+e.target.value) || 1; this.save(); this.draw(); });
       row.querySelector('.sc-off').addEventListener('change', e => { cc.pos = +e.target.value || 0; this.save(); this.draw(); });
       row.querySelector('.sc-ch-name').addEventListener('click', () => { this.selected = c.id; this.renderChans(); });
