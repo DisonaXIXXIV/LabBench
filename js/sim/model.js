@@ -19,13 +19,15 @@
 //     motors:  {m1: {state:'run'|'stop'|'stall'|'brake'|'runaway', note}},
 //     currents:{m1: {field: A, arm: A}, m3: {stator, rotor, cos, f2, U2}, ...},
 //     conv:    {tp: {I, U, If}, fc: {I, U, f, Iin, Ibr}, tpn: {I, U}} — величины преобразователей,
-//     signals: {id: {dc, ac:[{rms, f, ph, src}]}} — сигналы для осциллографа (мгновенные значения — sample(t)),
+//     signals: {id: {dc, ac:[{rms, f, ph, src, wave?, kf?}]}} — сигналы для осциллографа (мгновенные значения — sample(t));
+//              wave — несинусоидальная форма (см. sim/waves.js): rms и ph — первой гармоники, kf — Iдейств/I₁,
 //     energized: bool — на какую-либо машину подано питание (для фиксации выбега),
 //     events:  [{level, text}] — сообщения: 'trip' — общая защита стенда,
 //              'fault' (+dev, fault) — авария преобразователя, 'warn'/'info' — в журнал
 //   }
 import { Circuit } from './circuit.js';
 import { C, csub, cmul, cscale, cabs, carg, cexp, RPM, dcKphi, imT, imFromTorque, imBrake, frictionTorque } from './machines.js';
+import { fcInputWave, tpInputWave, waveAt } from './waves.js';
 
 export class DriveModel {
   constructor(bench) { this.bench = bench; }
@@ -50,6 +52,7 @@ const REGEN_W = 150;  // порог генераторной мощности П
 const REGEN_T = 0.5;  // время до перенапряжения звена ПТ без тормозного резистора, с
 const IM_DEFAULTS = { r1: 1, x1: 1.8, r2: 1, x2: 1.8, x0: 20 };
 const TP_RIPPLE = { f: 300, k: 0.05 }; // пульсации выпрямленного тока ТП (шестипульсная схема)
+const FC_IDLE_W = 40; // собственное потребление ПЧ под напряжением (управление, вентиляторы), Вт
 
 /** Направление трёхфазной системы по порядку фаз на трёх выводах: +1 — прямое (ABC), −1 — обратное, 0 — не три разные. */
 function sequence(names) {
@@ -281,7 +284,7 @@ export class QuasiStaticModel extends DriveModel {
     const currents = {};
     const conv = {};
     for (const c of bench.converters) conv[c.id] = { I: 0, U: 0, If: 0, Iin: 0, Ibr: 0, f: 0 };
-    const flows = [];   // токи через измерители: {probes:[{id, dir, k}], i, kind:'dc'|'ac', f, ph, seq, P, src, ripple}
+    const flows = [];   // токи через измерители: {probes:[{id, dir, k}], i, kind:'dc'|'ac', f, ph, seq, P, src, ripple, wave, kf}
     const signals = {};
     const frict = bench.friction || {};
     const friction = (w) => frictionTorque(w, frict.m0, frict.kv);
@@ -671,12 +674,19 @@ export class QuasiStaticModel extends DriveModel {
     }
 
     // --- преобразователи: нагрузка на выходе ТП, вход ПЧ, рекуперация, защиты ---
-    // ток на входе преобразователя проходит через измерители между сетью и его клеммниками A, B, C
-    const inputFlow = (c, i, ph, P) => {
-      if (i < 0.01) return;
+    // ток на входе преобразователя проходит через измерители между сетью и его клеммниками A, B, C;
+    // ph — фаза тока относительно напряжения фазы сети, к которой подключён клеммник A
+    // (возвращается фаза относительно фазы A сети — для сигнала преобразователя)
+    const inputFlow = (c, i, ph, P, shape = {}) => {
+      if (i < 0.01) return ph;
       const chains = Object.values(c.in).map(n => this.reach(cir, srcMap, nl.netOf(n), s => s.kind === 'ac' && s.phase !== 'N'));
-      if (chains.every(Boolean)) flow(chains, i, { kind: 'ac', f: 50, ph, P, u: UPH, src: 'mains', seq: sequence(chains.map(ch => ch.src.phase)) || 1 });
+      if (!chains.every(Boolean)) return ph;
+      const ph0 = ph + carg(chains[0].src.pot);
+      flow(chains, i, { kind: 'ac', f: 50, ph: ph0, P, u: UPH, src: 'mains', seq: sequence(chains.map(ch => ch.src.phase)) || 1, ...shape });
+      return ph0;
     };
+    // составляющая сигнала «ток входа» по форме w = {i1, ph, wave, kf}
+    const inputSig = (w, ph) => (w && w.i1 >= 0.01 ? [{ rms: w.i1, f: 50, ph, src: 'mains', wave: w.wave, kf: w.kf }] : []);
     for (const c of bench.converters) {
       const cv = ctx.converters[c.id];
       const cx = conv[c.id];
@@ -706,13 +716,20 @@ export class QuasiStaticModel extends DriveModel {
           if (c.imax && cx.I > c.imax) events.push({ level: 'fault', dev: c.id, fault: 'ПРЕВЫШЕНИЕ ТОКА', text: `ТП: максимально-токовая защита — ток выхода ${fmt(cx.I)} А при допустимых ${c.imax} А, снизьте задание` });
         }
         if (c.fieldOut && cv.running && cx.If < c.fieldMin) events.push({ level: 'fault', dev: c.id, fault: 'ОШИБКА ТОКА ОВ', text: `ТП: ошибка тока возбуждения — I_в = ${cx.If.toFixed(2)} А меньше ${c.fieldMin} А, якорная цепь отключена` });
-        // вход ТП: шестипульсный мост — I₁ ≈ 0,816·Id, cos φ ≈ Ud/Ud0 (угол управления)
+        // вход ТП: шестипульсный мост от сети 380 В — блоки тока по 120° со сдвигом на угол
+        // управления α (cos α ≈ Ud/Ud0, Ud0 = 513 В) и фронтами на угле коммутации (sim/waves.js);
+        // возбудитель — небольшая синусоидальная добавка
+        let tpIn = null, tpPh = 0;
         if (cv.powered) {
-          const pOut = Math.abs(cx.U * cx.I) + cx.If * cx.If * (bench.motors.find(m => m.kind === 'dc')?.rf || 153);
-          const iIn = 0.816 * cx.I + 0.4 * cx.If;
-          const cosIn = Math.max(0.1, Math.min(0.95, Math.abs(cx.U) / 260));
-          inputFlow(c, iIn, -Math.acos(cosIn), pOut / 0.97);
+          const pField = cx.If * cx.If * (bench.motors.find(m => m.kind === 'dc')?.rf || 153);
+          if (cx.I >= 0.01) {
+            tpIn = tpInputWave(cx.I, cx.U, c.xc);
+            tpPh = inputFlow(c, tpIn.i1, tpIn.ph, Math.abs(cx.U * cx.I) / 0.97, { wave: tpIn.wave, kf: tpIn.kf });
+            cx.Iin = tpIn.i1 * tpIn.kf;
+          }
+          if (pField > 1) inputFlow(c, pField / 0.9 / (3 * UPH * 0.9), -Math.acos(0.9), pField / 0.9);
         }
+        signals[`${c.id}.Iin`] = { dc: 0, ac: inputSig(tpIn, tpPh) };
         signals[`${c.id}.I`] = { dc: cx.I, ac: cx.I ? [{ rms: cx.I * TP_RIPPLE.k, f: TP_RIPPLE.f, ph: 0, src: 'tp' }] : [] };
         signals[`${c.id}.U`] = { dc: cx.U, ac: cx.U ? [{ rms: Math.abs(cx.U) * 0.06, f: TP_RIPPLE.f, ph: 0.3, src: 'tp' }] : [] };
       } else if (c.kind === 'fc') {
@@ -723,8 +740,11 @@ export class QuasiStaticModel extends DriveModel {
           else if (fcDrive.kind === 'torque') pOut = torqueTarget * w * RPM;
           else if (fcDrive.kind === 'im') pOut = fcDrive.calc(w).P1;
         }
-        const pIn = pOut > 0 ? pOut / 0.96 : 0;
-        cx.Iin = pIn / (SQRT3 * 380 * 0.95);
+        const pIn = (pOut > 0 ? pOut / 0.96 : 0) + (cv.powered ? FC_IDLE_W : 0);
+        // вход — диодный мост с конденсатором звена: импульсы тока у вершин линейных напряжений,
+        // тем уже и острее, чем меньше нагрузка (sim/waves.js)
+        const fcIn = pIn > 0 ? fcInputWave(pIn, c.input) : null;
+        cx.Iin = fcIn ? fcIn.i1 * fcIn.kf : 0;
         cx.Ibr = 0;
         if (c.brake && cv.running && pOut < -REGEN_W) {
           const [bp, bn] = c.brake;
@@ -736,9 +756,9 @@ export class QuasiStaticModel extends DriveModel {
             if (this.regen[c.id] >= REGEN_T) events.push({ level: 'fault', dev: c.id, fault: 'ПЕРЕНАПРЯЖЕНИЕ ЗПТ', text: `ПЧ: перенапряжение звена постоянного тока — рекуперация ${Math.round(-pOut)} Вт без тормозного резистора на Br+/Br−` });
           } else { this.regen[c.id] = 0; cx.Ibr = -pOut / UDC_LINK; }
         } else this.regen[c.id] = 0;
-        if (cv.powered) inputFlow(c, cx.Iin, -0.32, pIn);
+        const fcPh = cv.powered && fcIn ? inputFlow(c, fcIn.i1, fcIn.ph, pIn, { wave: fcIn.wave, kf: fcIn.kf }) : 0;
         const fo = Math.abs(cx.f || 0);
-        signals[`${c.id}.Iin`] = { dc: 0, ac: cx.Iin ? [{ rms: cx.Iin, f: 50, ph: -0.32, src: 'mains' }] : [] };
+        signals[`${c.id}.Iin`] = { dc: 0, ac: cv.powered ? inputSig(fcIn, fcPh) : [] };
         signals[`${c.id}.Uin`] = { dc: 0, ac: cv.powered ? [{ rms: 380, f: 50, ph: Math.PI / 6, src: 'mains' }] : [] };
         signals[`${c.id}.Ibr`] = { dc: cx.Ibr, ac: cx.Ibr ? [{ rms: cx.Ibr * 0.3, f: 1000, ph: 0, src: 'pwm' }] : [] };
         signals[`${c.id}.Uout`] = { dc: 0, ac: cv.running && fo ? [{ rms: cx.U, f: fo, ph: 0, src: `fc:${c.id}` }, { rms: cx.U * 0.35, f: 1000, ph: 0, src: 'pwm' }] : [] };
@@ -776,13 +796,13 @@ export class QuasiStaticModel extends DriveModel {
           } else {
             // фаза тока k-й фазы обмотки: сдвиг на k·120° по порядку следования фаз
             const ph = f.ph - (f.seq || 1) * p.k * 2 * Math.PI / 3 + (p.dir > 0 ? 0 : Math.PI);
-            acs.push({ rms: f.i, f: f.f, ph, src: f.src });
+            acs.push({ rms: f.i, f: f.f, ph, src: f.src, wave: f.wave, kf: f.kf });
           }
         }
       }
       return { dc, ac: acs, P };
     };
-    const rms = (p) => Math.hypot(p.dc, ...p.ac.filter(x => x.src !== 'tp' && x.src !== 'pwm').map(x => x.rms));
+    const rms = (p) => Math.hypot(p.dc, ...p.ac.filter(x => x.src !== 'tp' && x.src !== 'pwm').map(x => x.rms * (x.kf || 1)));
     const meters = {};
     for (const mt of bench.meters) {
       if (mt.kind === 'V') meters[mt.id] = mt.min < 0 ? Vdc(mt.across[0], mt.across[1]) : V(mt.across[0], mt.across[1]);
@@ -852,7 +872,8 @@ export class QuasiStaticModel extends DriveModel {
 
   /**
    * Мгновенные значения сигналов в момент t (с, абсолютное время модели):
-   * v = dc + Σ √2·rms·sin(θ_src(t) + ph), где θ_src — накопленная фаза источника частоты.
+   * v = dc + Σ √2·rms·sin(θ_src(t) + ph), где θ_src — накопленная фаза источника частоты;
+   * у составляющих с формой wave вместо √2·sin — нормированная таблица (sim/waves.js).
    */
   sample(t) {
     const out = {};
@@ -864,6 +885,7 @@ export class QuasiStaticModel extends DriveModel {
         const th = (this.theta[c.src] ?? 0) + 2 * Math.PI * f * dtau;
         // ШИМ-подобный остаток: меандр несущей, промодулированный
         if (c.src === 'pwm') v += Math.SQRT2 * c.rms * (((th / (2 * Math.PI)) % 1) < 0.5 ? 1 : -1) * Math.sin(th * 0.137 + c.ph);
+        else if (c.wave) v += c.rms * waveAt(c.wave, th + c.ph);
         else v += Math.SQRT2 * c.rms * Math.sin(th + c.ph);
       }
       out[id] = v;

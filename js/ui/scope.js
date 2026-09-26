@@ -22,8 +22,8 @@ export function channelCatalog(bench) {
     { id: 'n', label: 'ТГ — скорость', unit: 'об/мин' }, { id: 'M', label: 'ДМ — момент', unit: 'Нм' }, { id: 'PW_P', label: 'PW — мощность', unit: 'Вт' },
   ];
   for (const c of bench.converters) {
-    if (c.kind === 'dc') list.push({ id: `${c.id}.I`, label: 'ТП — ток выхода', unit: 'А' }, { id: `${c.id}.U`, label: 'ТП — напряжение выхода', unit: 'В' });
-    if (c.kind === 'fc') list.push({ id: `${c.id}.Iout`, label: 'ПЧ — ток выхода', unit: 'А' }, { id: `${c.id}.Uout`, label: 'ПЧ — напряжение выхода (ШИМ)', unit: 'В' }, { id: `${c.id}.Iin`, label: 'ПЧ — ток входа', unit: 'А' }, { id: `${c.id}.Uin`, label: 'ПЧ — напряжение входа', unit: 'В' }, { id: `${c.id}.Ibr`, label: 'ПЧ — ток тормозного резистора', unit: 'А' });
+    if (c.kind === 'dc') list.push({ id: `${c.id}.I`, label: 'ТП — ток выхода', unit: 'А' }, { id: `${c.id}.U`, label: 'ТП — напряжение выхода', unit: 'В' }, { id: `${c.id}.Iin`, label: 'ТП — ток входа (фаза A)', unit: 'А' });
+    if (c.kind === 'fc') list.push({ id: `${c.id}.Iout`, label: 'ПЧ — ток выхода', unit: 'А' }, { id: `${c.id}.Uout`, label: 'ПЧ — напряжение выхода (ШИМ)', unit: 'В' }, { id: `${c.id}.Iin`, label: 'ПЧ — ток входа (фаза A)', unit: 'А' }, { id: `${c.id}.Uin`, label: 'ПЧ — напряжение входа', unit: 'В' }, { id: `${c.id}.Ibr`, label: 'ПЧ — ток тормозного резистора', unit: 'А' });
     if (c.kind === 'ss') list.push({ id: `${c.id}.U`, label: 'ТПН — напряжение выхода', unit: 'В' }, { id: `${c.id}.I`, label: 'ТПН — ток', unit: 'А' });
   }
   for (const m of bench.motors) {
